@@ -8,6 +8,7 @@ const fs = require('fs');
 const csv = require("csvtojson");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const { ObjectId } = require("bson")
 const saltRounds = 10
 
 const adminLogin = async (req, res) => {
@@ -15,7 +16,7 @@ const adminLogin = async (req, res) => {
         const { email, password } = req.body;
         let admin = await AdminModel.findOne({ email })
         if (!admin) {
-            res.status(500).json({
+            res.json({
                 status: 0,
                 message: "Email Id is not exist",
                 details: {
@@ -25,7 +26,7 @@ const adminLogin = async (req, res) => {
         } else {
             bcrypt.compare(password, admin.password, function (err, result) {
                 if (err) {
-                    res.status(500).json({
+                    res.json({
                         status: "0",
                         message: "Server Error Occured",
                         details: {
@@ -36,7 +37,7 @@ const adminLogin = async (req, res) => {
                 }
 
                 if (!result) {
-                    res.status(500).json({
+                    res.json({
                         status: "0",
                         message: "Password is wrong",
                     })
@@ -71,7 +72,7 @@ const adminLogin = async (req, res) => {
 
     } catch (error) {
         console.log(error)
-        res.status(504).json({
+        res.json({
             message: "Data Not Uploaded"
         })
     }
@@ -82,7 +83,7 @@ const adminRegister = async (req, res) => {
         const { email, password } = req.body;
         let admin = await AdminModel.findOne({ email })
         if (admin) {
-            res.status(500).json({
+            res.json({
                 status: 0,
                 message: "Email Id is already exists",
                 details: {
@@ -93,7 +94,7 @@ const adminRegister = async (req, res) => {
             bcrypt.hash(password, saltRounds, async function (err, hash) {
                 // Store hash in your password DB.
                 if (err) {
-                    res.status(500).json({
+                    res.json({
                         status: 0,
                         message: "Server error occured",
                         details: {
@@ -128,7 +129,7 @@ const adminRegister = async (req, res) => {
 
     } catch (error) {
         console.log(error)
-        res.status(504).json({
+        res.json({
             message: "Data Not Uploaded"
         })
     }
@@ -173,7 +174,7 @@ const getStudents = async (req, res) => {
 
     } catch (error) {
         console.log(error)
-        res.status(504).json({
+        res.json({
             message: "Server error occured",
             details: { error }
         })
@@ -205,7 +206,7 @@ const getAgents = async (req, res) => {
 
     } catch (error) {
         console.log(error)
-        res.status(504).json({
+        res.json({
             message: "Server error occured",
             details: { error }
         })
@@ -218,7 +219,7 @@ const toggleStatus = async (req, res) => {
         const { agentId } = req.body;
         let agent = await AgentModel.findOne({ _id: agentId });
         if (!agent) {
-            res.status(500).json({
+            res.json({
                 status: "0",
                 message: "Agent not found.",
                 details: {
@@ -238,7 +239,7 @@ const toggleStatus = async (req, res) => {
         });
     } catch (error) {
         console.log(error);
-        res.status(504).json({
+        res.json({
             status: "0",
             message: "Server Error Occured",
             details: { error },
@@ -467,7 +468,7 @@ const uploadcsvdata = async (req, res) => {
                 });
         } catch (error) {
             console.log(error)
-            res.status(504).json({
+            res.json({
                 message: "Data Not Uploaded"
             })
         }
@@ -476,5 +477,192 @@ const uploadcsvdata = async (req, res) => {
 
 }
 
+const getSchools = async (req, res) => {
+    try {
+        var schools = [];
+        let data = req.body;
 
-module.exports = { adminLogin, adminRegister, getStudents, getAgents, toggleStatus, uploadcsvdata }
+        var q1 = {}
+        var q2 = {}
+        if (data?.country) {
+            // query of country
+            q1 = { 'country': data.country }
+        }
+        if (data?.searchItem) {
+            // check search item inside school_name, location, country, program_name etc.
+            q2 = {
+                $or: [
+                    { 'school_name': { $regex: data.searchItem, $options: 'i' } },
+                    { 'school_location': { $regex: data.searchItem, $options: 'i' } },
+                    { 'country': { $regex: data.searchItem, $options: 'i' } },
+                ]
+            }
+
+        }
+
+        // pagination variables
+        let perPage = 25;
+        let totalPages = 0;
+        let currentPage = data.currentPage;
+        var total_schools = await SchoolModel.find({ $and: [q1, q2] })
+        schools = await SchoolModel.find({ $and: [q1, q2] }).skip((perPage * (currentPage - 1)) || 0).limit(perPage)
+
+        totalPages = parseFloat(total_schools.length / perPage)
+        if (total_schools.length % perPage != 0) {
+            totalPages = parseInt(totalPages);
+            totalPages++;
+        }
+
+        res.json({
+            status: 1,
+            message: "Schools List Find Successfully",
+            details: { schools, totalPages, currentPage }
+        })
+
+
+    } catch (error) {
+        console.log(error)
+        res.json({
+            message: "Server error occured",
+            details: { error }
+        })
+    }
+}
+
+const getSchoolsPrograms = async (req, res) => {
+    try {
+        let data = req.body;
+
+        /*
+            1) School Name
+            2) country name
+            3) serach program name
+
+            then find only programs of filters
+        */
+
+        var totalData = await SchoolModel.aggregate([
+            {
+                $unwind:
+                {
+                    path: "$school_programs",
+                }
+            },
+            {
+                $match: {
+                    $and: [
+                        data?.schoolName ?
+                            { 'school_name': data?.schoolName } : {},
+                        data?.country ?
+                            { 'country': data?.country } : {},
+                        data?.searchItem ?
+                            { 'school_programs.program_name': { $regex: data.searchItem, $options: 'i' } } : {},
+                    ]
+                },
+            },
+            {
+                $group: {
+                    _id: '$_id',
+                    school_name: { $first: '$school_name' },
+                    school_about: { $first: "$school_about" },
+                    school_location: { $first: "$school_location" },
+                    country: { $first: "$country" },
+                    type: { $first: "$type" },
+                    total_student: { $first: "$total_student" },
+                    international_student: { $first: "$international_student" },
+                    accomodation_feature: { $first: "$accomodation_feature" },
+                    work_permit_feature: { $first: "$work_permit_feature" },
+                    program_cooporation: { $first: "$program_cooporation" },
+                    work_while_study: { $first: "$work_while_study" },
+                    condition_offer_letter: { $first: "$condition_offer_letter" },
+                    library: { $first: "$library" },
+                    founded: { $first: "$founded" },
+                    school_programs: {
+                        $push: {
+                            program_name: "$school_programs.program_name",
+                            description: "$school_programs.description",
+                            duration: "$school_programs.duration",
+                            grade_score: "$school_programs.grade_score",
+                            overall_band: "$school_programs.overall_band",
+                            pte_score: "$school_programs.pte_score",
+                            tofel_point: "$school_programs.tofel_point",
+                            ielts_listening: "$school_programs.ielts_listening",
+                            ielts_speaking: "$school_programs.ielts_speaking",
+                            ielts_writting: "$school_programs.ielts_writting",
+                            ielts_reading: "$school_programs.ielts_reading",
+                            new_stream: "$school_programs.new_stream",
+                            stream_id: "$school_programs.stream_id",
+                            other_fees: "$school_programs.other_fees",
+                            application_fee: "$school_programs.application_fee",
+                            tution_fee_per_semester: "$school_programs.tution_fee_per_semester",
+                            cost_of_living: "$school_programs.cost_of_living",
+                            currency: "$school_programs.currency",
+                            acceptance_letter: "$school_programs.acceptance_letter",
+                            intake_id: "$school_programs.intake_id",
+                            visa_processing_days: "$school_programs.visa_processing_days",
+                            process_days: "$school_programs.process_days",
+                            program_level: "$school_programs.program_level",
+                            other_comment: "$school_programs.other_comment",
+                            foundation_fee: "$school_programs.foundation_fee",
+                            acceptable_band: "$school_programs.acceptable_band",
+                            module: "$school_programs.module",
+                            english_language: "$school_programs.english_language",
+                            program_sort_order: "$school_programs.program_sort_order",
+                            status: "$school_programs.status",
+                        }
+                    }
+                }
+            }
+        ])
+
+        res.json({
+            status: 1,
+            message: "School Programs List Find Successfully",
+            details: {
+                totalData
+            }
+        })
+
+
+    } catch (error) {
+        console.log(error)
+        res.json({
+            message: "Server error occured",
+            details: { error }
+        })
+    }
+}
+
+const toggleIntakeStatus = async (req, res) => {
+    const { sId, pId, index } = req.body;
+    var school = await SchoolModel.findOne({ _id: sId })
+
+    var myIndex = null;
+    for (let indexx = 0; indexx < school.school_programs.length; indexx++) {
+        if (school.school_programs[indexx].program_name == pId) {
+            myIndex = indexx;
+        }
+    }
+
+    console.log({ myIndex })
+
+    if (myIndex != null) {
+        var oldStatus = school.school_programs[myIndex].status;
+        console.log({ oldStatus, name: school.school_programs[myIndex].program_name });
+        var arr = oldStatus.split(",")
+        arr[index] = arr[index] == "1" ? "0" : "1"
+        console.log({ arr })
+        school.school_programs[myIndex].status = arr.join(",")
+        await school.save();
+        res.json({
+            message: "Status Changed"
+        })
+    } else {
+        res.json({
+            message: "Something error, index not find"
+        })
+    }
+
+}
+
+module.exports = { adminLogin, adminRegister, getStudents, getAgents, toggleStatus, uploadcsvdata, getSchools, getSchoolsPrograms, toggleIntakeStatus }

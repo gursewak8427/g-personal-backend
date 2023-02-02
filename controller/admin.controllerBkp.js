@@ -15,7 +15,7 @@ const adminLogin = async (req, res) => {
         const { email, password } = req.body;
         let admin = await AdminModel.findOne({ email })
         if (!admin) {
-            res.status(500).json({
+            res.json({
                 status: 0,
                 message: "Email Id is not exist",
                 details: {
@@ -25,7 +25,7 @@ const adminLogin = async (req, res) => {
         } else {
             bcrypt.compare(password, admin.password, function (err, result) {
                 if (err) {
-                    res.status(500).json({
+                    res.json({
                         status: "0",
                         message: "Server Error Occured",
                         details: {
@@ -36,7 +36,7 @@ const adminLogin = async (req, res) => {
                 }
 
                 if (!result) {
-                    res.status(500).json({
+                    res.json({
                         status: "0",
                         message: "Password is wrong",
                     })
@@ -71,7 +71,7 @@ const adminLogin = async (req, res) => {
 
     } catch (error) {
         console.log(error)
-        res.status(504).json({
+        res.json({
             message: "Data Not Uploaded"
         })
     }
@@ -82,7 +82,7 @@ const adminRegister = async (req, res) => {
         const { email, password } = req.body;
         let admin = await AdminModel.findOne({ email })
         if (admin) {
-            res.status(500).json({
+            res.json({
                 status: 0,
                 message: "Email Id is already exists",
                 details: {
@@ -93,7 +93,7 @@ const adminRegister = async (req, res) => {
             bcrypt.hash(password, saltRounds, async function (err, hash) {
                 // Store hash in your password DB.
                 if (err) {
-                    res.status(500).json({
+                    res.json({
                         status: 0,
                         message: "Server error occured",
                         details: {
@@ -105,7 +105,7 @@ const adminRegister = async (req, res) => {
 
 
                 if (!result) {
-                    res.status(500).json({
+                    res.json({
                         status: "0",
                         message: "Password is wrong",
                     })
@@ -137,7 +137,7 @@ const adminRegister = async (req, res) => {
 
     } catch (error) {
         console.log(error)
-        res.status(504).json({
+        res.json({
             message: "Data Not Uploaded"
         })
     }
@@ -182,7 +182,7 @@ const getStudents = async (req, res) => {
 
     } catch (error) {
         console.log(error)
-        res.status(504).json({
+        res.json({
             message: "Server error occured",
             details: { error }
         })
@@ -214,7 +214,7 @@ const getAgents = async (req, res) => {
 
     } catch (error) {
         console.log(error)
-        res.status(504).json({
+        res.json({
             message: "Server error occured",
             details: { error }
         })
@@ -227,7 +227,7 @@ const toggleStatus = async (req, res) => {
         const { agentId } = req.body;
         let agent = await AgentModel.findOne({ _id: agentId });
         if (!agent) {
-            res.status(500).json({
+            res.json({
                 status: "0",
                 message: "Agent not found.",
                 details: {
@@ -247,7 +247,7 @@ const toggleStatus = async (req, res) => {
         });
     } catch (error) {
         console.log(error);
-        res.status(504).json({
+        res.json({
             status: "0",
             message: "Server Error Occured",
             details: { error },
@@ -375,7 +375,7 @@ const uploadcsvdata = async (req, res) => {
             });
     } catch (error) {
         console.log(error)
-        res.status(504).json({
+        res.json({
             message: "Data Not Uploaded"
         })
     }

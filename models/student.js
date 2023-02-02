@@ -13,7 +13,7 @@ const studentSchema = new Schema({
         type: String,
         trim: true,
         required: [true, 'Password is required'],
-        minlength: [6, "Password must have minimum 6 characters"],
+        // minlength: [6, "Password must have minimum 6 characters"],
     },
     firstName: {
         type: String,

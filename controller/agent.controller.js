@@ -12,7 +12,7 @@ const agentLogin = async (req, res) => {
         const { username, password } = req.body;
         let agent = await AgentModel.findOne({ username })
         if (!agent) {
-            res.status(500).json({
+            res.json({
                 status: "0",
                 message: "Username is not exist",
                 details: {
@@ -22,7 +22,7 @@ const agentLogin = async (req, res) => {
         } else {
             bcrypt.compare(password, agent.password, function (err, result) {
                 if (err) {
-                    res.status(500).json({
+                    res.json({
                         status: "0",
                         message: "Server Error Occured",
                         details: {
@@ -33,7 +33,7 @@ const agentLogin = async (req, res) => {
                 }
 
                 if (!result) {
-                    res.status(500).json({
+                    res.json({
                         status: "0",
                         message: "Password is wrong",
                     })
@@ -79,7 +79,7 @@ const agentLogin = async (req, res) => {
 
     } catch (error) {
         console.log(error)
-        res.status(504).json({
+        res.json({
             status: "0",
             message: "Server Error Occured",
             details: { error }
@@ -103,7 +103,7 @@ const agentRegister = async (req, res) => {
         } = req.body;
         let admin = await AgentModel.findOne({ email });
         if (admin) {
-            res.status(500).json({
+            res.json({
                 status: "0",
                 message: "Email Id is already exists",
                 details: {
@@ -119,7 +119,7 @@ const agentRegister = async (req, res) => {
             bcrypt.hash(plainPassword, saltRounds, async function (err, hash) {
                 // Store hash in your password DB.
                 if (err) {
-                    res.status(500).json({
+                    res.json({
                         status: 0,
                         message: "Server error occured",
                         details: {
@@ -130,7 +130,7 @@ const agentRegister = async (req, res) => {
                 }
 
                 if (!hash) {
-                    res.status(500).json({
+                    res.json({
                         status: "0",
                         message: "Password is wrong",
                     });
@@ -159,7 +159,7 @@ const agentRegister = async (req, res) => {
                             errorsData[key] = error.errors[key].message;
                         });
 
-                        res.status(504).json({
+                        res.json({
                             status: "0",
                             name: "ValidationError",
                             message: "Validation Error",
@@ -199,7 +199,7 @@ const agentRegister = async (req, res) => {
         }
     } catch (error) {
         console.log(error);
-        res.status(504).json({
+        res.json({
             status: "0",
             message: "Server Error Occured",
             details: { error },
@@ -212,7 +212,7 @@ const agentRegister = async (req, res) => {
 //         const { email, password } = req.body;
 //         let admin = await AgentModel.findOne({ email })
 //         if (admin) {
-//             res.status(500).json({
+//             res.json({
 //                 status: "0",
 //                 message: "Email Id is already exists",
 //                 details: {
@@ -223,7 +223,7 @@ const agentRegister = async (req, res) => {
 //             bcrypt.hash(password, saltRounds, async function (err, hash) {
 //                 // Store hash in your password DB.
 //                 if (err) {
-//                     res.status(500).json({
+//                     res.json({
 //                         status: 0,
 //                         message: "Server error occured",
 //                         details: {
@@ -235,7 +235,7 @@ const agentRegister = async (req, res) => {
 
 
 //                 if (!result) {
-//                     res.status(500).json({
+//                     res.json({
 //                         status: "0",
 //                         message: "Password is wrong",
 //                     })
@@ -267,7 +267,7 @@ const agentRegister = async (req, res) => {
 
 //     } catch (error) {
 //         console.log(error)
-//         res.status(504).json({
+//         res.json({
 //             status: "0",
 //             message: "Server Error Occured",
 //             details: { error }
@@ -281,7 +281,7 @@ const agentAddStudent = async (req, res) => {
         const { userId } = req.userData
         let student = await StudentModel.findOne({ email })
         if (student) {
-            res.status(500).json({
+            res.json({
                 status: "0",
                 message: "Email Id is already used by another Student",
                 details: {
@@ -292,7 +292,7 @@ const agentAddStudent = async (req, res) => {
             bcrypt.hash(password, saltRounds, async function (err, hash) {
                 // Store hash in your password DB.
                 if (err) {
-                    res.status(500).json({
+                    res.json({
                         status: "0",
                         message: "Server error occured",
                         details: {
@@ -326,7 +326,7 @@ const agentAddStudent = async (req, res) => {
 
     } catch (error) {
         console.log(error)
-        res.status(504).json({
+        res.json({
             status: "0",
             message: "Server Error Occured",
             details: { error }
@@ -362,7 +362,7 @@ const agentGetStudents = async (req, res) => {
 
     } catch (error) {
         console.log(error)
-        res.status(504).json({
+        res.json({
             status: "0",
             message: "Server Error Occured",
             details: { error }
@@ -375,7 +375,7 @@ const agentGetProfile = async (req, res) => {
         const { userId } = req.userData
         let agent = await AgentModel.findOne({ _id: userId })
         if (!agent) {
-            res.status(500).json({
+            res.json({
                 status: "0",
                 message: "Agent Not Found",
             })
@@ -388,7 +388,7 @@ const agentGetProfile = async (req, res) => {
         }
     } catch (error) {
         console.log(error)
-        res.status(504).json({
+        res.json({
             status: "0",
             message: "Server Error Occured",
             details: { error }
@@ -401,7 +401,7 @@ const agentVerifyToken = async (req, res) => {
         const { userId } = req.userData
         let agent = await AgentModel.findOne({ _id: userId })
         if (!agent) {
-            res.status(500).json({
+            res.json({
                 status: "0",
                 message: "Agent Not Found",
             })
@@ -423,7 +423,7 @@ const agentVerifyToken = async (req, res) => {
         }
     } catch (error) {
         console.log(error)
-        res.status(504).json({
+        res.json({
             status: "0",
             message: "Server Error Occured",
             details: { error }
@@ -447,7 +447,7 @@ const agentUpdateProfile = async (req, res) => {
 
         let agent = await AgentModel.findOne({ userId });
         if (!agent) {
-            res.status(500).json({
+            res.json({
                 status: "0",
                 message: "Agent not found.",
                 details: {
@@ -494,7 +494,7 @@ const agentUpdateProfile = async (req, res) => {
                         errorsData[key] = error.errors[key].message;
                     });
 
-                    res.status(504).json({
+                    res.json({
                         status: "0",
                         name: "ValidationError",
                         message: "Validation Error",
@@ -518,7 +518,7 @@ const agentUpdateProfile = async (req, res) => {
         }
     } catch (error) {
         console.log(error);
-        res.status(504).json({
+        res.json({
             status: "0",
             message: "Server Error Occured",
             details: { error },

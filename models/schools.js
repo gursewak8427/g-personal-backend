@@ -78,7 +78,7 @@ const schoolSchema = new Schema({
             description: {
                 type: String,
                 trim: true,
-                required: [true, "Program Description is required"],
+                // required: [true, "Program Description is required"],
             },
             duration: {
                 type: Number,
@@ -185,6 +185,9 @@ const schoolSchema = new Schema({
                 type: Number,
                 description: "Program Sort Order must be of number type"
             },
+            status: {
+                type: String,
+            }
         }
     ]
 

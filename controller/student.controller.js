@@ -9,20 +9,20 @@ const { sendConfirmationEmail } = require("../helper/sendConfirmationEmail");
 
 const studentLogin = async (req, res) => {
     try {
-        const { email, password } = req.body;
-        let student = await StudentModel.findOne({ email })
+        const { data, password } = req.body;
+        let student = await StudentModel.findOne({ $or: [{ phone: data }, { email: data }] })
         if (!student) {
-            res.status(500).json({
+            res.json({
                 status: 0,
-                message: "Email Id is not exist",
+                message: "Phone number is not exist",
                 details: {
-                    error: "Student email id is wrong"
+                    error: "Student phone number is wrong"
                 }
             })
         } else {
             bcrypt.compare(password, student.password, function (err, result) {
                 if (err) {
-                    res.status(500).json({
+                    res.json({
                         status: 0,
                         message: "Server error occured",
                         details: {
@@ -34,7 +34,7 @@ const studentLogin = async (req, res) => {
 
 
                 if (!result) {
-                    res.status(500).json({
+                    res.json({
                         status: "0",
                         message: "Password is wrong",
                     })
@@ -43,7 +43,7 @@ const studentLogin = async (req, res) => {
 
                 // // now check email verification
                 // if (student.emailVerified == "UN_VERIFIED") {
-                //     res.status(500).json({
+                //     res.json({
                 //         status: "0",
                 //         message: "Please confirm your email",
                 //     })
@@ -67,7 +67,8 @@ const studentLogin = async (req, res) => {
                         token: token,
                         student: {
                             email: student.email,
-                            id: student._id
+                            id: student._id,
+                            emailVerified: student.emailVerified
                         }
                     }
                 })
@@ -78,7 +79,7 @@ const studentLogin = async (req, res) => {
 
     } catch (error) {
         console.log(error)
-        res.status(504).json({
+        res.json({
             status: "0",
             message: "Server Error Occured",
             details: { error }
@@ -89,30 +90,58 @@ const studentLogin = async (req, res) => {
 const studentRegister = async (req, res) => {
     try {
         const { email, password, firstName, lastName, phone } = req.body;
-        let student = await StudentModel.findOne({ email })
-        if (student) {
-            res.status(500).json({
+
+        if (!email || email == "") {
+            res.json({
                 status: "0",
-                message: "Email Id is already exists",
-                details: {
-                    error: "This email is already used by another student"
-                }
+                message: "Email is required",
+            })
+            return;
+        }
+        if (!phone || phone == "") {
+            res.json({
+                status: "0",
+                message: "Phone is required",
+            })
+            return;
+        }
+
+        let student = await StudentModel.findOne({ $or: [{ phone }, { email }] })
+        if (student) {
+            let error = []
+            if (student.phone == phone) {
+                error.push("phone")
+            }
+            if (student.email == email) {
+                error.push("email")
+            }
+            res.json({
+                status: "0",
+                message: error.join(" and ") + " is already used",
             })
         } else {
+            if (!password) {
+                res.json({
+                    status: "0",
+                    message: "Password is required",
+                })
+                return;
+            }
             bcrypt.hash(password, saltRounds, async function (err, hash) {
                 // Store hash in your password DB.
                 if (err) {
-                    res.status(500).json({
+                    res.json({
                         status: "0",
                         message: "Server error occured",
                         details: {
                             error: err
                         }
                     })
+                    return;
                 }
 
-                if (password.length < 6) {
-                    res.status(504).json({
+                if (password?.length < 6) {
+                    res.json({
                         status: "0",
                         name: "ValidationError",
                         message: "Password must have minimum 6 characters",
@@ -139,7 +168,7 @@ const studentRegister = async (req, res) => {
                             errorsData[key] = error.errors[key].message;
                         });
 
-                        res.status(504).json({
+                        res.json({
                             status: "0",
                             name: "ValidationError",
                             message: "Validation Error",
@@ -188,7 +217,7 @@ const studentRegister = async (req, res) => {
 
     } catch (error) {
         console.log(error)
-        res.status(504).json({
+        res.json({
             status: "0",
             message: "Server Error Occured",
             details: { error }
@@ -212,7 +241,7 @@ const studentConfirmEmail = async (req, res) => {
         })
     } catch (error) {
         console.log(error)
-        res.status(504).json({
+        res.json({
             status: "0",
             message: "Server Error Occured",
             details: { error }
@@ -227,7 +256,7 @@ const resendEmail = async (req, res) => {
     let student = await StudentModel.findOne({ _id: userId })
 
     if (!student) {
-        res.status(504).json({
+        res.json({
             status: "0",
             message: "Student Not Found",
         })
@@ -260,7 +289,7 @@ const getEmailVerification = async (req, res) => {
     let student = await StudentModel.findOne({ _id: userId })
 
     if (!student) {
-        res.status(504).json({
+        res.json({
             status: "0",
             message: "Student Not Found",
         })
@@ -283,7 +312,12 @@ const getEmailVerification = async (req, res) => {
 
 
 const studentSearch = async (req, res) => {
-    const { highest_education, country_to_go, exam, new_stream, grade_score } = req.body;
+    var perPage = 1;
+    var currentPage = parseInt(req.query.page);
+    if (!currentPage) currentPage = 1;
+
+    const { highest_education, country_to_go, exam, new_stream, grade_score, school_type, fees } = req.body;
+    console.log(req.body)
     var highest_education_new = highest_education
     if (highest_education == 'secondary') {
         highest_education_new = "Graduate"
@@ -340,9 +374,9 @@ const studentSearch = async (req, res) => {
         }
 
     } else if (exam.type == "PTE") {
-        examdata = { $or: [{ 'school_programs.pte_score': { $lt: exam.score } }, { 'school_programs.pte_score': { $eq: exam.score } }] }
+        examdata = { $or: [{ 'school_programs.pte_score': { $lt: parseFloat(exam.score) } }, { 'school_programs.pte_score': { $eq: parseFloat(exam.score) } }] }
     } else if (exam.type == "TOFEL") {
-        examdata = { $or: [{ 'school_programs.tofel_point': { $lt: exam.score } }, { 'school_programs.tofel_point': { $eq: exam.score } }] }
+        examdata = { $or: [{ 'school_programs.tofel_point': { $lt: parseFloat(exam.score) } }, { 'school_programs.tofel_point': { $eq: parseFloat(exam.score) } }] }
     }
 
     // if (mymin < 6 && mymodule < 4) {
@@ -351,7 +385,7 @@ const studentSearch = async (req, res) => {
     //     var accpetanceQuery = []
     // }
 
-    console.log({ overall });
+    console.log({ overall, skip: (currentPage - 1) * perPage, currentPage, perPage });
 
     var totalData = await SchoolModel.aggregate([
         {
@@ -400,7 +434,11 @@ const studentSearch = async (req, res) => {
                             $or: [{ 'school_programs.acceptable_band': { $lt: mymin } }, { 'school_programs.acceptable_band': { $eq: mymin } }],
                             $or: [{ 'school_programs.module': { $gt: mymodule } }, { 'school_programs.module': { $eq: mymodule } }],
                         } : {},
-                    grade_score || grade_score == 0 ? { $or: [{ "school_programs.grade_score": { $lt: grade_score } }, { "school_programs.grade_score": { $eq: grade_score } }] } : {}
+                    school_type ?
+                        { 'type': { $regex: school_type, $options: 'i' } } : {},
+                    fees ?
+                        { $or: [{ 'school_programs.tution_fee_per_semester': { $lt: parseFloat(fees) } }, { 'school_programs.tution_fee_per_semester': { $eq: parseFloat(fees) } }] } : {},
+                    grade_score || parseFloat(grade_score) == 0 ? { $or: [{ "school_programs.grade_score": { $lt: parseFloat(grade_score) } }, { "school_programs.grade_score": { $eq: parseFloat(grade_score) } }] } : {}
                 ]
             }
         },
@@ -456,19 +494,127 @@ const studentSearch = async (req, res) => {
                 }
             }
         },
+        { $skip: (currentPage - 1) * perPage },
+        { $limit: perPage }
+    ])
+
+    var totalData_all = await SchoolModel.aggregate([
+        {
+            $unwind:
+            {
+                path: "$school_programs",
+            }
+        },
+        {
+            $match: {
+                country: country_to_go,
+                $and: [
+                    new_stream && new_stream.length != 0 ? {
+                        $expr: {
+                            "$gt": [
+                                {
+                                    "$size": {
+                                        "$setIntersection": [
+                                            "$school_programs.new_stream",
+                                            new_stream
+                                        ]
+                                    }
+                                },
+                                0
+                            ]
+                        }
+                    } : {},
+                    highest_education_new && highest_education_new != "" ? {
+                        $expr: {
+                            "$gt": [
+                                {
+                                    "$size": {
+                                        "$setIntersection": [
+                                            "$school_programs.program_level",
+                                            [highest_education_new]
+                                        ]
+                                    }
+                                },
+                                0
+                            ]
+                        },
+                    } : {},
+                    { ...examdata },
+                    mymin < 6 && mymodule < 4 ?
+                        {
+                            $or: [{ 'school_programs.acceptable_band': { $lt: mymin } }, { 'school_programs.acceptable_band': { $eq: mymin } }],
+                            $or: [{ 'school_programs.module': { $gt: mymodule } }, { 'school_programs.module': { $eq: mymodule } }],
+                        } : {},
+                    school_type ?
+                        { 'type': { $regex: school_type, $options: 'i' } } : {},
+                    grade_score || parseFloat(grade_score) == 0 ? { $or: [{ "school_programs.grade_score": { $lt: parseFloat(grade_score) } }, { "school_programs.grade_score": { $eq: parseFloat(grade_score) } }] } : {}
+                ]
+            }
+        },
+        {
+            $group: {
+                _id: '$_id',
+                school_name: { $first: '$school_name' },
+                school_about: { $first: "$school_about" },
+                school_location: { $first: "$school_location" },
+                country: { $first: "$country" },
+                type: { $first: "$type" },
+                total_student: { $first: "$total_student" },
+                international_student: { $first: "$international_student" },
+                accomodation_feature: { $first: "$accomodation_feature" },
+                work_permit_feature: { $first: "$work_permit_feature" },
+                program_cooporation: { $first: "$program_cooporation" },
+                work_while_study: { $first: "$work_while_study" },
+                condition_offer_letter: { $first: "$condition_offer_letter" },
+                library: { $first: "$library" },
+                founded: { $first: "$founded" },
+                school_programs: {
+                    $push: {
+                        program_name: "$school_programs.program_name",
+                        description: "$school_programs.description",
+                        duration: "$school_programs.duration",
+                        grade_score: "$school_programs.grade_score",
+                        overall_band: "$school_programs.overall_band",
+                        pte_score: "$school_programs.pte_score",
+                        tofel_point: "$school_programs.tofel_point",
+                        ielts_listening: "$school_programs.ielts_listening",
+                        ielts_speaking: "$school_programs.ielts_speaking",
+                        ielts_writting: "$school_programs.ielts_writting",
+                        ielts_reading: "$school_programs.ielts_reading",
+                        new_stream: "$school_programs.new_stream",
+                        stream_id: "$school_programs.stream_id",
+                        other_fees: "$school_programs.other_fees",
+                        application_fee: "$school_programs.application_fee",
+                        tution_fee_per_semester: "$school_programs.tution_fee_per_semester",
+                        cost_of_living: "$school_programs.cost_of_living",
+                        currency: "$school_programs.currency",
+                        acceptance_letter: "$school_programs.acceptance_letter",
+                        intake_id: "$school_programs.intake_id",
+                        visa_processing_days: "$school_programs.visa_processing_days",
+                        process_days: "$school_programs.process_days",
+                        program_level: "$school_programs.program_level",
+                        other_comment: "$school_programs.other_comment",
+                        foundation_fee: "$school_programs.foundation_fee",
+                        acceptable_band: "$school_programs.acceptable_band",
+                        module: "$school_programs.module",
+                        english_language: "$school_programs.english_language",
+                        program_sort_order: "$school_programs.program_sort_order",
+                    }
+                }
+            }
+        }
     ])
 
 
-
-    var totalSchools = totalData.length;
-    var totalPrograms = totalData.reduce((prev, curr) => { return prev + curr.school_programs.length }, 0);
-
+    var totalSchools = totalData_all.length;
+    var totalPrograms = totalData_all.reduce((prev, curr) => { return prev + curr.school_programs.length }, 0);
+    var noMore = totalData.length < perPage ? true : false
     res.json({
         status: "1",
         message: "Data find successfully",
         details: {
             schools: totalData,
-            totalSchools, totalPrograms
+            totalSchools, totalPrograms, noMore
         }
     })
 }

@@ -58,7 +58,7 @@ io.on("connection", (socket) => {
                                 "new_stream": new_stream,
                                 "stream_id": parseFloat(jsonObj[index]["stream_id"]) || 0,
                                 "application_fee": parseFloat(jsonObj[index]["application_fee"]) || 0,
-                                "tution_fee_per_semester": parseFloat(jsonObj[index]["tution_fee_per_semester"]) || 0,
+                                "tution_fee_per_semester": parseFloat(jsonObj[index]["tution_fee_per_semester"].split(",").join("")) || 0,
                                 "acceptance_letter": parseFloat(jsonObj[index]["acceptance_letter"]) || 0,
                                 "intake_id": jsonObj[index]["intake_id"],
                                 "visa_processing_days": parseFloat(jsonObj[index]["visa_processing_days"]) || 0,
@@ -238,10 +238,12 @@ io.on("connection", (socket) => {
                     let finalObj = []
                     var erroredIndex = []
                     var erroredData = []
+
                     socket.emit("FromAPI", { total: jsonObj.length })
                     for (var index = 0; index < jsonObj.length; index++) {
-                        // skip row which havn't school name
-                        // if (jsonObj[index]["school_name"] == "") continue;
+                        // skip row which havn't school name and program_name is empty
+                        if (jsonObj[index]["school_name"] == "" && jsonObj[index]["program_name"] == "") continue;
+
                         var myErrors = []
                         if (jsonObj[index]["school_name"] == "") {
                             myErrors.push("School Name is required");
@@ -252,18 +254,17 @@ io.on("connection", (socket) => {
                         if (jsonObj[index]["program_name"] == "") {
                             myErrors.push("Program Name is required");
                         }
-                        if (jsonObj[index]["description"] == "") {
-                            myErrors.push("Program Description is required");
-                        }
 
                         if (myErrors.length != 0) {
                             console.log(myErrors);
-                            erroredIndex.push(index)
+                            // erroredIndex.push(index)
                             erroredData.push(myErrors.join("\n"))
-                            continue;
+                        } else {
+                            erroredData.push("NOT_ERROR")
                         }
 
                         if (addedSchools.includes(jsonObj[index]["school_name"])) {
+                            console.log({ json: jsonObj[index] });
                             let myindex = addedSchools.indexOf(jsonObj[index]["school_name"]);
 
                             var new_stream = jsonObj[index]["new_stream"].split(",").map(item => Constants.new_stream[item])
@@ -284,7 +285,7 @@ io.on("connection", (socket) => {
                                 "new_stream": new_stream,
                                 "stream_id": parseFloat(jsonObj[index]["stream_id"]) || 0,
                                 "application_fee": parseFloat(jsonObj[index]["application_fee"]) || 0,
-                                "tution_fee_per_semester": parseFloat(jsonObj[index]["tution_fee_per_semester"]) || 0,
+                                "tution_fee_per_semester": parseFloat(jsonObj[index]["tution_fee_per_semester"].split(",").join("")) || 0,
                                 "acceptance_letter": parseFloat(jsonObj[index]["acceptance_letter"]) || 0,
                                 "intake_id": jsonObj[index]["intake_id"],
                                 "visa_processing_days": parseFloat(jsonObj[index]["visa_processing_days"]) || 0,
@@ -298,10 +299,10 @@ io.on("connection", (socket) => {
                                 "cost_of_living": parseFloat(jsonObj[index]["cost_of_living"]) || 0,
                                 "currency": jsonObj[index]["currency"],
                                 "acceptable_band": parseFloat(jsonObj[index]["acceptable_band"]) || 0,
+                                "status": jsonObj[index]["Status"],
                             })
                         } else {
                             addedSchools.push(jsonObj[index]["school_name"])
-                            console.log("Im here")
                             var type = jsonObj[index]["type"].split(",").map(item => Constants.type[item])
 
                             finalObj.push(
@@ -321,7 +322,37 @@ io.on("connection", (socket) => {
                                     "condition_offer_letter": Boolean(jsonObj[index]["condition_offer_letter"]),
                                     "library": Boolean(jsonObj[index]["library"]),
                                     "founded": parseFloat(jsonObj[index]["founded"]) || 0,
-                                    "school_programs": [],
+                                    "school_programs": [{
+                                        "program_name": jsonObj[index]["program_name"],
+                                        "description": jsonObj[index]["description"],
+                                        "duration": parseFloat(jsonObj[index]["duration"]) || 0,
+                                        "grade_score": parseFloat(jsonObj[index]["grade_score"]) || 0,
+                                        "overall_band": parseFloat(jsonObj[index]["overall_band"]) || 0,
+                                        "pte_score": parseFloat(jsonObj[index]["pte_score"]) || 0,
+                                        "tofel_point": parseFloat(jsonObj[index]["tofel_point"]) || null,
+                                        "ielts_listening": parseFloat(jsonObj[index]["ielts_listening"]) || 0,
+                                        "ielts_speaking": parseFloat(jsonObj[index]["ielts_speaking"]) || 0,
+                                        "ielts_writting": parseFloat(jsonObj[index]["ielts_writting"]) || 0,
+                                        "ielts_reading": parseFloat(jsonObj[index]["ielts_reading"]) || 0,
+                                        "new_stream": new_stream,
+                                        "stream_id": parseFloat(jsonObj[index]["stream_id"]) || 0,
+                                        "application_fee": parseFloat(jsonObj[index]["application_fee"]) || 0,
+                                        "tution_fee_per_semester": parseFloat(jsonObj[index]["tution_fee_per_semester"].split(",").join("")) || 0,
+                                        "acceptance_letter": parseFloat(jsonObj[index]["acceptance_letter"]) || 0,
+                                        "intake_id": jsonObj[index]["intake_id"],
+                                        "visa_processing_days": parseFloat(jsonObj[index]["visa_processing_days"]) || 0,
+                                        "process_days": parseFloat(jsonObj[index]["process_days"]) || 0,
+                                        "program_level": program_level,
+                                        "other_comment": jsonObj[index]["Others Comment"],
+                                        "foundation_fee": parseFloat(jsonObj[index]["Foundation Fee"]) || 0,
+                                        "module": parseFloat(jsonObj[index]["module"]) || 0,
+                                        "english_language": parseFloat(jsonObj[index]["english_language"]) || 0,
+                                        "program_sort_order": parseFloat(jsonObj[index]["program_sort_order"]) || 0,
+                                        "cost_of_living": parseFloat(jsonObj[index]["cost_of_living"]) || 0,
+                                        "currency": jsonObj[index]["currency"],
+                                        "acceptable_band": parseFloat(jsonObj[index]["acceptable_band"]) || 0,
+                                        "status": jsonObj[index]["Status"],
+                                    }],
                                 }
                             )
                         }
@@ -329,22 +360,36 @@ io.on("connection", (socket) => {
                         // socket.emit("FromAPI", { message: "Uploaded", index: index })
                     }
 
-                    socket.emit("FromAPI", { msg: "Final Object Created Successfully", data: finalObj })
                     // console.log(finalObj);
                     // let newSchools = await SchoolModel.insertMany(finalObj)
                     var updated = false;
                     var myCustomIndex = 0;
                     for (let index = 0; index < finalObj.length; index++) {
                         const singleSchool = finalObj[index];
-
+                        console.log("length", singleSchool.school_programs.length)
                         var newSchool = await SchoolModel.findOne({ school_name: singleSchool.school_name })
                         if (!newSchool) {
                             newSchool = await SchoolModel(singleSchool)
+                            console.log({ newSchool })
                             updated = false;
-                            while (erroredIndex.includes(myCustomIndex)) {
-                                socket.emit("FromAPI", { message: "Failed", details: erroredData[myCustomIndex], index: myCustomIndex++ })
+                            // if (erroredData[myCustomIndex] != "NOT_ERROR") {
+                            //     socket.emit("FromAPI", { message: "Failed", details: erroredData[myCustomIndex], index: myCustomIndex++ })
+                            // } else {
+                            //     socket.emit("FromAPI", { message: "Uploaded", index: myCustomIndex++ })
+                            // }
+                            for (var j = 0; j < singleSchool.school_programs.length; j++) {
+                                if (updated) {
+                                    if (erroredData[myCustomIndex] != "NOT_ERROR") {
+                                        socket.emit("FromAPI", { message: "Failed", details: erroredData[myCustomIndex], index: myCustomIndex++ })
+                                    } else
+                                        socket.emit("FromAPI", { message: "Updated", index: myCustomIndex++ })
+                                } else {
+                                    if (erroredData[myCustomIndex] != "NOT_ERROR") {
+                                        socket.emit("FromAPI", { message: "Failed", details: erroredData[myCustomIndex], index: myCustomIndex++ })
+                                    } else
+                                        socket.emit("FromAPI", { message: "Uploaded", index: myCustomIndex++ })
+                                }
                             }
-                            socket.emit("FromAPI", { message: "Uploaded", index: myCustomIndex++ })
                         } else {
                             newSchool.school_name = singleSchool.school_name
                             newSchool.school_about = singleSchool.school_about
@@ -361,32 +406,37 @@ io.on("connection", (socket) => {
                             newSchool.condition_offer_letter = singleSchool.condition_offer_letter
                             newSchool.library = singleSchool.library
                             newSchool.founded = singleSchool.founded
-                            newSchool.school_programs = singleSchool.school_programs
+                            newSchool.school_programs = []
                             updated = true;
-                            while (erroredIndex.includes(myCustomIndex)) {
-                                socket.emit("FromAPI", { message: "Failed", details: erroredData[myCustomIndex], index: myCustomIndex++ })
-                            }
-                            socket.emit("FromAPI", { message: "Updated", index: myCustomIndex++ })
-                        }
-                        for (var j = 0; j < singleSchool.school_programs.length; j++) {
-                            newSchool.school_programs.push(singleSchool.school_programs[j])
-                            if (updated) {
-                                while (erroredIndex.includes(myCustomIndex)) {
-                                    socket.emit("FromAPI", { message: "Failed", details: erroredData[myCustomIndex], index: myCustomIndex++ })
+
+                            // if (erroredData[myCustomIndex] != "NOT_ERROR") socket.emit("FromAPI", { message: "Failed", details: erroredData[myCustomIndex], index: myCustomIndex++ })
+                            // else socket.emit("FromAPI", { message: "Updated", index: myCustomIndex++ })
+
+                            for (var j = 0; j < singleSchool.school_programs.length; j++) {
+                                newSchool.school_programs.push(singleSchool.school_programs[j])
+                                if (updated) {
+                                    if (erroredData[myCustomIndex] != "NOT_ERROR") {
+                                        socket.emit("FromAPI", { message: "Failed", details: erroredData[myCustomIndex], index: myCustomIndex++ })
+                                    } else
+                                        socket.emit("FromAPI", { message: "Updated", index: myCustomIndex++ })
+                                } else {
+                                    if (erroredData[myCustomIndex] != "NOT_ERROR") {
+                                        socket.emit("FromAPI", { message: "Failed", details: erroredData[myCustomIndex], index: myCustomIndex++ })
+                                    } else
+                                        socket.emit("FromAPI", { message: "Uploaded", index: myCustomIndex++ })
                                 }
-                                socket.emit("FromAPI", { message: "Updated", index: myCustomIndex++ })
-                            } else {
-                                while (erroredIndex.includes(myCustomIndex)) {
-                                    socket.emit("FromAPI", { message: "Failed", details: erroredData[myCustomIndex], index: myCustomIndex++ })
-                                }
-                                socket.emit("FromAPI", { message: "Uploaded", index: myCustomIndex++ })
                             }
                         }
-                        await newSchool.save();
+
+                        try {
+                            await newSchool.save();
+                        } catch (error) {
+                            console.log({ error });
+                        }
                     }
 
 
-                    socket.emit("FromAPI", { msg: "All data Uploaded Successfully", data: newSchools })
+                    socket.emit("FromAPI", { msg: "All data Uploaded Successfully", data: newSchool })
 
                     fs.unlink("uploads/" + fileName, (err) => {
                         if (err) {
@@ -398,7 +448,7 @@ io.on("connection", (socket) => {
                     socket.emit("FromAPI", {
                         message: "Data Uploaded Successfully",
                         details: {
-                            schools: newSchools,
+                            schools: newSchool,
                             // results: resultData,
                         }
                     })
