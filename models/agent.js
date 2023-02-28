@@ -38,8 +38,8 @@ const agentSchema = new Schema({
     status: {
         type: String,
         trim: true,
-        enum: ['UN_APPROVED', 'APPROVED', 'BLOCKED'],
-        default: "UN_APPROVED"
+        enum: ['REJECT', 'APPROVED', 'PENDING'],
+        default: "PENDING"
     },
     street: {
         type: String,
@@ -158,11 +158,33 @@ const agentSchema = new Schema({
         default: ""
     },
 
+    business_certificate_status: {
+        type: String,
+        default: "PENDING"
+    },
+
     company_logo: {
         type: String,
         default: ""
     },
-
+    company_logo_status: {
+        type: String,
+        default: "PENDING"
+    },
+    notifications: [{
+        message: String,
+        redirectUrl: String,
+        body: String,
+        created: String,
+    }],
+    unseenNotifications: {
+        type: Number,
+        default: 0,
+    },
+    web_push_token: {
+        type: String,
+        default: "",
+    },
 });
 
 // Compile model from schema

@@ -4,13 +4,9 @@ const adminSchema = new Schema({
     email: {
         type: String,
         trim: true,
-        required: true,
-        description: "Email is required",
-        trim: true,
         lowercase: true,
-        unique: true,
-        // minLength: 4,
-        // maxLength: 15
+        required: true,
+        description: "Password is required",
     },
     password: {
         type: String,
@@ -27,6 +23,37 @@ const adminSchema = new Schema({
     last_name: {
         type: String,
         trim: true,
+    },
+    phone: {
+        type: String,
+        trim: true,
+    },
+    verificationCode: {
+        code: String,
+        token: String,
+    },
+    role: {
+        type: String,
+        enum: ["ADMIN", "SUBADMIN", "COUNSELOR"],
+        default: "ADMIN"
+    },
+    created: {
+        type: String
+    },
+    permissions: [String],
+    notifications: [{
+        message: String,
+        redirectUrl: String,
+        body: String,
+        created: String,
+    }],
+    unseenNotifications: {
+        type: Number,
+        default: 0,
+    },
+    web_push_token: {
+        type: String,
+        default: "",
     },
 });
 

@@ -24,12 +24,23 @@ const schoolSchema = new Schema({
         trim: true,
         required: [true, "Country name is required"],
     },
+    state: {
+        type: String,
+        trim: true,
+        required: [true, "State name is required"],
+    },
+    city: {
+        type: String,
+        trim: true,
+        required: [true, "City name is required"],
+    },
     type: {
         type: String,
         required: [true, "School Type is required"],
     },
     school_order: {
         type: Number,
+        default: 0
     },
     total_student: {
         type: Number,
@@ -67,9 +78,17 @@ const schoolSchema = new Schema({
         type: Number,
         description: "Founded must be of Number type"
     },
-
+    top_status: {
+        type: Boolean,
+        default: false,
+    },
     school_programs: [
         {
+            program_id: {
+                type: String,
+                trim: true,
+                required: [true, "Program Id is required"],
+            },
             program_name: {
                 type: String,
                 trim: true,
@@ -131,9 +150,13 @@ const schoolSchema = new Schema({
                 type: Number,
                 description: "Application Fee must be of number type"
             },
-            tution_fee_per_semester: {
+            min_tution_fee_per_semester: {
                 type: Number,
-                description: "Tution fee per semester must be of number type"
+                description: "Max Tution fee per semester must be of number type"
+            },
+            max_tution_fee: {
+                type: Number,
+                description: "Min Tution fee per semester must be of number type"
             },
             cost_of_living: {
                 type: Number,
@@ -145,10 +168,6 @@ const schoolSchema = new Schema({
                 type: Number,
                 description: "Acceptance Letter must be of number type in days"
             },
-            intake_id: {
-                type: String,
-                trim: true,
-            },
             visa_processing_days: {
                 type: Number,
                 description: "Visa Processing days must be of number type in days"
@@ -156,6 +175,9 @@ const schoolSchema = new Schema({
             process_days: {
                 type: Number,
                 description: "Processing days must be of number type in years"
+            },
+            credentials: {
+                type: String,
             },
             program_level: {
                 type: [String],
@@ -185,9 +207,20 @@ const schoolSchema = new Schema({
                 type: Number,
                 description: "Program Sort Order must be of number type"
             },
-            status: {
-                type: String,
-            }
+            few_seats_status: {
+                type: Boolean,
+                default: false,
+            },
+            top_status: {
+                type: Boolean,
+                default: false,
+            },
+            intakes_data: [
+                {
+                    months: [Boolean],
+                    year: Number,
+                }
+            ],
         }
     ]
 

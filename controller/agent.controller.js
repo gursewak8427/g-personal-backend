@@ -1,4 +1,5 @@
 const AgentModel = require("../models/agent")
+const AdminModel = require("../models/admin")
 const StudentModel = require("../models/student")
 const { sendEmail } = require("../helper/sendEmail")
 const fs = require('fs');
@@ -6,6 +7,51 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const saltRounds = 10
 var generatorPassword = require('generate-password');
+const { default: axios } = require("axios");
+
+const appendNotification = async (model, users, msg, url, body = "") => {
+    // send msg
+    await model.updateMany(
+        model == AdminModel ? {
+            role: { $in: users },
+        } : {},
+        {
+            $push: {
+                notifications: {
+                    message: msg,
+                    redirectUrl: url,
+                    body,
+                    created: Date.now(),
+                }
+            },
+            $inc: {
+                unseenNotifications: 1
+            }
+        }
+    )
+
+    // get admin token
+
+    let adminData = await model.findOne()
+
+    try {
+        // let ENDPOINT = "https://learnglobal-backend.onrender.com/notification"
+        let ENDPOINT = "http://localhost:3006/notification"
+
+        const response = await axios.post(ENDPOINT, {
+            title: msg,
+            body: body,
+            token: adminData.web_push_token,
+            redirectUrl: url,
+        });
+
+        console.log({ response })
+    } catch (error) {
+        console.log({ error1: error })
+    }
+
+
+}
 
 const agentLogin = async (req, res) => {
     try {
@@ -182,7 +228,14 @@ const agentRegister = async (req, res) => {
                     <p>Password : ${plainPassword}</p> 
                     </div>`
 
+                console.log({ email: agent.email, subject, html })
                 sendEmail(agent.email, subject, html)
+
+                // agent register successfully add notification to admin and subadmins
+                let msg = "Agent Registered (" + agent.email + ")"
+                let url = "/d/admin/agentProfile?id=" + agent._id
+
+                await appendNotification(AdminModel, ["ADMIN", "SUBADMIN"], msg, url)
 
                 res.json({
                     status: "1",
@@ -372,7 +425,11 @@ const agentGetStudents = async (req, res) => {
 
 const agentGetProfile = async (req, res) => {
     try {
-        const { userId } = req.userData
+        if (req.userData.role == "ADMIN") {
+            var userId = req.query.id
+        } else {
+            var { userId } = req.userData
+        }
         let agent = await AgentModel.findOne({ _id: userId })
         if (!agent) {
             res.json({
@@ -383,7 +440,7 @@ const agentGetProfile = async (req, res) => {
             res.json({
                 status: "1",
                 message: "Profile Fetch Successfully",
-                details: { agent, baseUrl: "http://localhost:3006" }
+                details: { agent, baseUrl: "https://learnglobal-backend.onrender.com" }
             })
         }
     } catch (error) {
@@ -399,6 +456,10 @@ const agentGetProfile = async (req, res) => {
 const agentVerifyToken = async (req, res) => {
     try {
         const { userId } = req.userData
+        console.log(req.body)
+        if (req.body?.token) {
+            setWebPushToken(userId, req.body.token)
+        }
         let agent = await AgentModel.findOne({ _id: userId })
         if (!agent) {
             res.json({
@@ -430,20 +491,26 @@ const agentVerifyToken = async (req, res) => {
         })
     }
 }
+
 //...................................................
 const agentUpdateProfile = async (req, res) => {
     // console.log("body", req.body)
     // console.log("files", req.files.business_certificate_file[0])
     if (req?.files?.business_certificate_file) {
         req.body.business_certificate = req?.files?.business_certificate_file[0].filename
+        req.body.business_certificate_status = "PENDING"
     }
     if (req?.files?.company_logo_file) {
         req.body.company_logo = req?.files?.company_logo_file[0].filename
+        req.body.company_logo_status = "PENDING"
     }
 
     try {
-
-        const { userId } = req.userData;
+        if (req.userData.role == "ADMIN") {
+            var userId = req.query.id;
+        } else {
+            var { userId } = req.userData;
+        }
 
         let agent = await AgentModel.findOne({ userId });
         if (!agent) {
@@ -455,15 +522,41 @@ const agentUpdateProfile = async (req, res) => {
                 },
             });
         } else {
-            let marketing_methods = req.body.marketing_methods.split(",")
-            if (marketing_methods[0] == "") {
-                if (marketing_methods.length == 0) {
-                    req.body.marketing_methods = []
+            if (req.body?.marketing_methods) {
+
+                let marketing_methods = req.body.marketing_methods.split(",")
+                if (marketing_methods[0] == "") {
+                    if (marketing_methods.length == 0) {
+                        req.body.marketing_methods = []
+                    } else {
+                        req.body.marketing_methods = marketing_methods.splice(1)
+                    }
                 } else {
-                    req.body.marketing_methods = marketing_methods.splice(1)
+                    req.body.marketing_methods = marketing_methods
                 }
+            }
+
+            console.log(req.body)
+
+            if (req.body.document) {
+                // notification
+                let doc = req.body.document == "company_logo_status" ? "Company Logo" : "Business Certificate"
+
+
+                if (req.body?.reason) {
+                    console.log(req.body.reason)
+                    var msg = "Your Document " + doc + " is Declined because of " + req.body.reason
+                } else {
+                    var msg = "Your Document " + doc + " is Approved"
+                }
+                var url = "/d/agent/profile"
+
+                await appendNotification(AgentModel, [], msg, url)
+
             } else {
-                req.body.marketing_methods = marketing_methods
+                let msg = `Agent- ${agent.email} Update Profile`
+                let url = "/d/admin/agentProfile?id=" + agent._id
+                await appendNotification(AdminModel, ["ADMIN", "SUBADMIN"], msg, url)
             }
 
             let agentdata = await AgentModel.findByIdAndUpdate(
@@ -486,6 +579,8 @@ const agentUpdateProfile = async (req, res) => {
                         fs.unlinkSync(filePath2);
                     }
                 }
+
+
 
             } catch (error) {
                 if (error.name === "ValidationError") {
@@ -527,4 +622,47 @@ const agentUpdateProfile = async (req, res) => {
 };
 
 
-module.exports = { agentLogin, agentRegister, agentAddStudent, agentGetStudents, agentGetProfile, agentVerifyToken, agentUpdateProfile }
+const getNotifications = async (req, res) => {
+    console.log("notification data")
+    console.log(req.userData)
+    const { userId } = req.userData
+
+    const adminData = await AgentModel.findById(userId)
+
+
+    res.json({
+        status: "1",
+        message: "Notifications get successfully",
+        details: {
+            notifications: adminData.notifications.reverse(),
+            unseenNotifications: adminData.unseenNotifications
+        }
+    })
+}
+
+
+
+
+// setWebPushToken
+const setWebPushToken = async (userId, token) => {
+    console.log({ userId, token })
+    const agentData = await AgentModel.findOne({ _id: userId })
+    agentData.web_push_token = token
+    console.log({ agentData })
+    agentData.save()
+
+    return true;
+}
+
+
+
+module.exports = {
+    agentRegister,
+    getNotifications,
+    agentLogin,
+    agentAddStudent,
+    agentGetStudents,
+    agentGetProfile,
+    agentVerifyToken,
+    agentUpdateProfile
+}
