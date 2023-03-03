@@ -36,7 +36,8 @@ const {
     toggletopstatusschool,
     topcategorydata,
     getSingleProgramDetail,
-    getSingleSchoolDetails
+    getSingleSchoolDetails,
+    getDashboardCounts
 } = require("../controller/admin.controller");
 const checkAuth = require("../helper/checkAuth");
 
@@ -89,5 +90,7 @@ router.post("/toggletopstatusschool", toggletopstatusschool)
 router.get("/topcategorydata", topcategorydata)
 router.post("/getSingleProgramDetail", getSingleProgramDetail)
 router.post("/getSingleSchoolDetails", getSingleSchoolDetails)
+
+router.get("/getDashboardCounts", getDashboardCounts)
 
 module.exports = router;

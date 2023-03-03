@@ -17,7 +17,8 @@ const SchoolNamesModel = require("./models/schoolNames")
 
 // app.listen(3006, () => console.log("Server Start"))
 const server = http.createServer(app);
-const io = require('socket.io')(server, { cors: { origin: "*" } });
+
+const io = require('socket.io')(server, { cors: { origin: ["http://localhost:3000", "https://learn-global.onrender.com"], } });
 
 module.exports = { io };
 
@@ -237,6 +238,7 @@ io.on("connection", (socket) => {
             csv()
                 .fromFile(data.file.path)
                 .then(async (jsonObj) => {
+
                     let addedSchools = []
                     let finalObj = []
                     var erroredIndex = []
@@ -460,7 +462,8 @@ io.on("connection", (socket) => {
                         // socket.emit("FromAPI", { message: "Uploaded", index: index })
                     }
 
-                    // console.log(finalObj);
+                    // console.log({ finalObj });
+                    // return;
                     // let newSchools = await SchoolModel.insertMany(finalObj)
                     var updated = false;
                     var myCustomIndex = 0;
@@ -478,17 +481,24 @@ io.on("connection", (socket) => {
                             //     socket.emit("FromAPI", { message: "Uploaded", index: myCustomIndex++ })
                             // }
                             for (var j = 0; j < singleSchool.school_programs.length; j++) {
-                                if (updated) {
-                                    if (erroredData[myCustomIndex] != "NOT_ERROR") {
-                                        socket.emit("FromAPI", { message: "Failed", details: erroredData[myCustomIndex], index: myCustomIndex++ })
-                                    } else
-                                        socket.emit("FromAPI", { message: "Updated", index: myCustomIndex++ })
+                                // if (updated) {
+                                //     if (erroredData[myCustomIndex] != "NOT_ERROR") {
+                                //         socket.emit("FromAPI", { message: "Failed", details: erroredData[myCustomIndex], index: myCustomIndex++ })
+                                //     } else
+                                //         socket.emit("FromAPI", { message: "Updated", index: myCustomIndex++ })
+                                // } else {
+                                if (erroredData[myCustomIndex] != "NOT_ERROR") {
+                                    socket.emit("FromAPI", { message: "Failed", details: erroredData[myCustomIndex], index: myCustomIndex++ })
                                 } else {
-                                    if (erroredData[myCustomIndex] != "NOT_ERROR") {
-                                        socket.emit("FromAPI", { message: "Failed", details: erroredData[myCustomIndex], index: myCustomIndex++ })
-                                    } else
+                                    try {
+                                        await newSchool.save();
                                         socket.emit("FromAPI", { message: "Uploaded", index: myCustomIndex++ })
+                                    } catch (error) {
+                                        console.log({ error });
+                                        socket.emit("FromAPI", { message: "Failed", index: myCustomIndex++, details: error.message })
+                                    }
                                 }
+                                // }
                             }
                         } else {
                             newSchool.school_name = singleSchool.school_name
@@ -519,22 +529,26 @@ io.on("connection", (socket) => {
                                 if (updated) {
                                     if (erroredData[myCustomIndex] != "NOT_ERROR") {
                                         socket.emit("FromAPI", { message: "Failed", details: erroredData[myCustomIndex], index: myCustomIndex++ })
-                                    } else
-                                        socket.emit("FromAPI", { message: "Updated", index: myCustomIndex++ })
-                                } else {
-                                    if (erroredData[myCustomIndex] != "NOT_ERROR") {
-                                        socket.emit("FromAPI", { message: "Failed", details: erroredData[myCustomIndex], index: myCustomIndex++ })
-                                    } else
-                                        socket.emit("FromAPI", { message: "Uploaded", index: myCustomIndex++ })
+                                    } else {
+                                        try {
+                                            await newSchool.save();
+                                            socket.emit("FromAPI", { message: "Updated", index: myCustomIndex++ })
+                                        } catch (error) {
+                                            console.log({ error });
+                                            socket.emit("FromAPI", { message: "Failed", index: myCustomIndex++, details: error.message })
+                                        }
+                                    }
                                 }
+                                // else {
+                                //     if (erroredData[myCustomIndex] != "NOT_ERROR") {
+                                //         socket.emit("FromAPI", { message: "Failed", details: erroredData[myCustomIndex], index: myCustomIndex++ })
+                                //     } else
+                                //         socket.emit("FromAPI", { message: "Uploaded", index: myCustomIndex++ })
+                                // }
                             }
                         }
 
-                        try {
-                            await newSchool.save();
-                        } catch (error) {
-                            console.log({ error });
-                        }
+
                     }
 
 
@@ -571,9 +585,15 @@ io.on("connection", (socket) => {
 
 // middlewares
 app.use(express.json());
-app.use(cors({
-    origin: '*',
-}))
+app.use(cors())
+
+
+// app.use((req, res, next) => {
+//     res.header("Access-Control-Allow-Origin", "*");
+//     next();
+// });
+
+
 app.use('/uploads/agent', express.static('uploads/agent'));
 app.use('/uploads/student', express.static('uploads/student'));
 
@@ -583,6 +603,7 @@ app.use("/agent", require("./routes/agent"))
 app.use("/student", require("./routes/student"))
 app.use("/notification", require("./routes/notification"))
 app.use("/address", require("./routes/address"))
+app.use("/docsrequired", require("./routes/docsrequired"))
 
 
 server.listen(process.env.PORT || 3006, () => console.log(`Listening on port ${process.env.PORT || 3006}`));

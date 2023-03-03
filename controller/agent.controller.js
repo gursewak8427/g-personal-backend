@@ -8,13 +8,24 @@ const jwt = require("jsonwebtoken");
 const saltRounds = 10
 var generatorPassword = require('generate-password');
 const { default: axios } = require("axios");
+const { sendConfirmationEmail } = require("../helper/sendConfirmationEmail");
 
-const appendNotification = async (model, users, msg, url, body = "") => {
+
+const appendNotification = async (
+    model,
+    users,
+    msg,
+    url,
+    body = "",
+    userId = null
+) => {
     // send msg
     await model.updateMany(
-        model == AdminModel ? {
-            role: { $in: users },
-        } : {},
+        model == AdminModel
+            ? {
+                role: { $in: users },
+            }
+            : {},
         {
             $push: {
                 notifications: {
@@ -22,36 +33,85 @@ const appendNotification = async (model, users, msg, url, body = "") => {
                     redirectUrl: url,
                     body,
                     created: Date.now(),
-                }
+                },
             },
             $inc: {
-                unseenNotifications: 1
-            }
+                unseenNotifications: 1,
+            },
         }
-    )
+    );
 
     // get admin token
 
-    let adminData = await model.findOne()
+    if (userId) {
+        var user = await model.findOne({ _id: userId });
+    } else {
+        var user = await model.findOne();
+    }
 
     try {
-        // let ENDPOINT = "https://learnglobal-backend.onrender.com/notification"
-        let ENDPOINT = "http://localhost:3006/notification"
+        let ENDPOINT = "https://learn-global-backend.onrender.com/notification"
+        // let ENDPOINT = "http://localhost:3006/notification";
+
+        console.log({ user });
+
+        let token = [user.web_push_token];
+
+        if (model == StudentModel) {
+            token = [user.web_push_token, user.device_token];
+        }
+
+        console.log({ token });
 
         const response = await axios.post(ENDPOINT, {
             title: msg,
             body: body,
-            token: adminData.web_push_token,
+            token: token,
             redirectUrl: url,
         });
 
-        console.log({ response })
+        console.log({ response });
     } catch (error) {
-        console.log({ error1: error })
+        console.log({ error1: error });
     }
+};
 
+const testNotification = async (req, res) => {
+    let userId = req.body.userId;
+    let msg = "Test Notification";
+    let url = "https://learn-global.onrender.com/d/student";
+    await appendNotification(StudentModel, [], msg, url, "", userId);
+    res.json({ success: "1", message: "Test Notification Send" });
+};
 
-}
+const appendHistory = async (model, userId, userRole, text) => {
+    // get admin token
+    try {
+        let userData = await model.findById(userId);
+        userData.history.push({
+            text: text,
+            created: Date.now(),
+            action_created_by_user_id: userId,
+            action_created_by_user_role: userRole,
+        });
+        await userData.save();
+
+        return {
+            status: "1",
+            message: "History Added Successfully",
+        };
+    } catch (error) {
+        console.log({ error });
+        return {
+            status: "0",
+            message: "History added failed",
+            details: {
+                error: error,
+            },
+        };
+    }
+};
+
 
 const agentLogin = async (req, res) => {
     try {
@@ -330,18 +390,56 @@ const agentRegister = async (req, res) => {
 
 const agentAddStudent = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, password, firstName, lastName, phone } = req.body;
         const { userId } = req.userData
-        let student = await StudentModel.findOne({ email })
-        if (student) {
+        if (userId) {
+            var agentDetails = await AgentModel.findById(userId);
+        }
+        if (!email || email == "") {
             res.json({
                 status: "0",
-                message: "Email Id is already used by another Student",
-                details: {
-                    error: "This email is already used by another Student"
-                }
-            })
+                message: "Email is required",
+            });
+            return;
+        }
+        if (!phone || phone == "") {
+            res.json({
+                status: "0",
+                message: "Phone is required",
+            });
+            return;
+        }
+        let student = await StudentModel.findOne({ $or: [{ phone }, { email }] });
+        if (student) {
+            let error = [];
+            if (student.phone == phone) {
+                error.push("phone");
+            }
+            if (student.email == email) {
+                error.push("email");
+            }
+            res.json({
+                status: "0",
+                message: error.join(" and ") + " is already used",
+            });
         } else {
+            if (!password) {
+                res.json({
+                    status: "0",
+                    message: "Password is required",
+                });
+                return;
+            }
+
+
+            if (password?.length < 6) {
+                res.json({
+                    status: "0",
+                    name: "ValidationError",
+                    message: "Password must have minimum 6 characters",
+                });
+                return;
+            }
             bcrypt.hash(password, saltRounds, async function (err, hash) {
                 // Store hash in your password DB.
                 if (err) {
@@ -357,10 +455,66 @@ const agentAddStudent = async (req, res) => {
                 let student = new StudentModel({
                     email,
                     password: hash,
+                    firstName,
+                    lastName,
+                    phone,
+                    device_token: req.body?.deviceToken || "",
                     agent_id: userId,
                 })
+                try {
+                    let response = await student.save();
+                    console.log(response);
+                } catch (error) {
+                    if (error.name === "ValidationError") {
+                        let errorsData = {};
+                        Object.keys(error.errors).forEach((key) => {
+                            errorsData[key] = error.errors[key].message;
+                        });
 
-                await student.save();
+                        res.json({
+                            status: "0",
+                            name: "ValidationError",
+                            message: "Validation Error",
+                            details: { error: errorsData },
+                        });
+                        return;
+                    }
+
+                    console.log(error);
+                    return;
+                }
+
+                // generate jwt token
+                let jwtSecretKey = process.env.JWT_SECRET_KEY;
+                let data = {
+                    time: Date(),
+                    userId: student._id.toString(),
+                    email: student.email,
+                };
+
+                const token = jwt.sign(data, jwtSecretKey);
+                let ENDPOINT = "https://learn-global.onrender.com";
+                // let ENDPOINT = "http://localhost:3000";
+
+                sendConfirmationEmail(firstName, email, token, ENDPOINT + "/d/student");
+
+                let msg = `Student Register (${student.email}) by Agent - ${agentDetails.email}`;
+                let url = `/d/admin/studentprofile?id=${student._id}`;
+                await appendNotification(AdminModel, ["ADMIN"], msg, url);
+
+                await appendHistory(
+                    StudentModel,
+                    student._id,
+                    "STUDENT",
+                    "Registration Successful"
+                );
+                await appendHistory(
+                    AgentModel,
+                    userId,
+                    "AGENT",
+                    `Student Registered Successfully - ${student.email}`
+                );
+
 
                 res.json({
                     status: "1",
@@ -392,11 +546,12 @@ const agentGetStudents = async (req, res) => {
         const data = req.body
         const { userId } = req.userData
 
+        console.log({ userId })
+
         // pagination variables
         let perPage = 5;
         let totalPages = 0;
         let currentPage = data.currentPage;
-
 
         let totalStudents = await StudentModel.find({ agent_id: userId })
         let students = await StudentModel.find({ agent_id: userId }).skip((perPage * (currentPage - 1)) || 0).limit(perPage)
@@ -440,7 +595,7 @@ const agentGetProfile = async (req, res) => {
             res.json({
                 status: "1",
                 message: "Profile Fetch Successfully",
-                details: { agent, baseUrl: "https://learnglobal-backend.onrender.com" }
+                details: { agent, baseUrl: "https://learn-global-backend.onrender.com" }
             })
         }
     } catch (error) {

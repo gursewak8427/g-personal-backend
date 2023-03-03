@@ -49,8 +49,8 @@ const appendNotification = async (model, users, msg, url, body = "") => {
     let adminData = await model.findOne()
 
     try {
-        // let ENDPOINT = "https://learnglobal-backend.onrender.com/notification"
-        let ENDPOINT = "http://localhost:3006/notification"
+        let ENDPOINT = "https://learn-global-backend.onrender.com/notification"
+        // let ENDPOINT = "http://localhost:3006/notification"
 
         const response = await axios.post(ENDPOINT, {
             title: msg,
@@ -136,9 +136,41 @@ const adminLogin = async (req, res) => {
                     return;
                 }
 
+                // login if admin have token-preserve
+                if (req?.body?.tokenPreserve) {
+
+                    // generate jwt token
+                    let jwtSecretKey2 = process.env.JWT_SECRET_KEY;
+                    let data = {
+                        time: Date(),
+                        userId: admin._id,
+                        email: admin.email,
+                        permissions: admin.permissions,
+                        role: admin.role
+                    }
+
+                    const token2 = jwt.sign(data, jwtSecretKey2, { expiresIn: "30d" });
+
+
+                    res.json({
+                        status: 1,
+                        message: "Login Successfully",
+                        details: {
+                            mode: "LOGIN", // LOGIN, 2FA
+                            token: token2,
+                        }
+                    })
+
+                    return;
+                }
+
+
                 // send verification code
                 let email = admin.email
-                let randomString = (Math.random() + 1).toString(36).substring(7);
+
+                // generate a random 5 digit number
+                let randomString = Math.floor(Math.random()*90000) + 10000;
+                // let randomString = (Math.random() + 1).toString(36).substring(7);
                 let subject = "Learn Global Verification Code for Admin Login"
                 let html = `
                     <p>This verification code is valid for 5min</p>
@@ -161,12 +193,25 @@ const adminLogin = async (req, res) => {
 
                 await admin.save();
 
+
+                // generate jwt token
+                let jwtSecretKey2 = process.env.JWT_SECRET_KEY;
+                let data2 = {
+                    time: Date(),
+                    userId: admin._id,
+                    email: admin.email,
+                }
+
+                const token2 = jwt.sign(data2, jwtSecretKey, { expiresIn: "30d" });
+
+
                 res.json({
                     status: 1,
                     message: "Verification Code send successfully",
-                    // details: {
-                    //     token: token,
-                    // }
+                    details: {
+                        mode: "2FA",
+                        token: token2,
+                    }
                 })
 
             });
@@ -370,8 +415,8 @@ const getStudents = async (req, res) => {
             }
 
         } else {
-            let totalStudents = await StudentModel.find()
-            students = await StudentModel.find().skip((perPage * (currentPage - 1)) || 0).limit(perPage)
+            let totalStudents = await StudentModel.find().sort({ "createdAt": "-1" })
+            students = await StudentModel.find().sort({ "createdAt": "-1" }).skip((perPage * (currentPage - 1)) || 0).limit(perPage)
             totalPages = parseInt(totalStudents.length / perPage)
 
             if (totalStudents.length % perPage != 0) {
@@ -709,7 +754,8 @@ const getSchools = async (req, res) => {
         const url = req.originalUrl;
         const port = process.env.PORT || 3006;
 
-        const fullUrl = `${protocol}://${host}:${port}`
+        const fullUrl = `${protocol}://${host}`
+        // const fullUrl = `${protocol}://${host}:${port}`
 
         var schools = [];
         let data = req.body;
@@ -1237,6 +1283,8 @@ const addSchoolname = async (req, res) => {
         schoolLogo: schoolLogoName,
         countryLogo: countryLogoName
     })
+
+    console.log({newSchoolName})
 
     await newSchoolName.save()
 
@@ -1912,7 +1960,7 @@ const topcategorydata = async (req, res) => {
         message: "Top Category data Find",
         details: {
             schools, programs: finalPrograms, countries: [],
-            baseUrl: fullUrl + "/uploads/agent" 
+            baseUrl: fullUrl + "/uploads/agent"
         }
     })
 }
@@ -1979,6 +2027,51 @@ const getSingleSchoolDetails = async (req, res) => {
 }
 
 
+// getDashboardCounts api
+const getDashboardCounts = async (req, res) => {
+    // Total Agent
+    let totalAgents = await AgentModel.find()
+    totalAgents = totalAgents.length
+    // Approved Agent
+    let approvedAgents = -1
+    // Unapproved Agent
+    let unApprovedAgents = -1
+    // Agent Student
+    let agentStudents = await StudentModel.find({ agent_id: { $ne: "" } })
+    agentStudents = agentStudents.length
+    // Total Student
+    let totalStudents = await StudentModel.find()
+    totalStudents = totalStudents.length
+    // Block Student
+    let blockStudents = await StudentModel.find({ status: "BLOCKED" })
+    blockStudents = blockStudents.length
+    // Unblock Student
+    let unBlockStudents = await StudentModel.find({ status: { $ne: "BLOCKED" } })
+    unBlockStudents = unBlockStudents.length
+    // Total Schools
+    let totalSchools1 = await SchoolModel.find()
+    totalSchools = totalSchools1.length
+    // Total Programs
+    let totalPrograms = totalSchools1.reduce((prev, curr) => prev + curr.school_programs.length, 0)
+
+    res.json({
+        status: "1",
+        message: "Dashboard Data Founded",
+        details: {
+            totalAgents,
+            approvedAgents,
+            unApprovedAgents,
+            agentStudents,
+            totalStudents,
+            blockStudents,
+            unBlockStudents,
+            totalSchools,
+            totalPrograms
+        }
+    })
+}
+
+
 module.exports = {
     adminList,
     registerAdmin,
@@ -2017,5 +2110,6 @@ module.exports = {
     // topprograms,
     topcategorydata,
     getSingleProgramDetail,
-    getSingleSchoolDetails
+    getSingleSchoolDetails,
+    getDashboardCounts
 }

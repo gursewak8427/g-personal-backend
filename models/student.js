@@ -1,5 +1,5 @@
-const { ObjectId } = require("bson");
-const { Schema, model } = require("mongoose");
+const {ObjectId} = require("bson");
+const {Schema, model} = require("mongoose");
 
 const studentSchema = new Schema({
     email: {
@@ -7,7 +7,9 @@ const studentSchema = new Schema({
         trim: true,
         trim: true,
         lowercase: true,
-        required: [true, 'Email is required'],
+        required: [
+            true, 'Email is required'
+        ],
         match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please fill a valid email address']
     },
     password: {
@@ -33,7 +35,7 @@ const studentSchema = new Schema({
     },
     agent_id: {
         type: String,
-        default: "",
+        default: ""
     },
     emailVerified: {
         type: String,
@@ -42,72 +44,88 @@ const studentSchema = new Schema({
     },
     loginProvider: {
         type: String,
-        default: "",
+        default: ""
     },
     status: {
         type: String,
         default: "PENDING",
-        enum: ["PENDING", "IN_PROCESS", "APPROVED", "REJECTED"]
+        enum: [
+            "PENDING",
+            "IN_PROCESS",
+            "APPROVED",
+            "REJECTED",
+            "BLOCKED"
+        ]
     },
-    documents: [{
-        document_title: String,
-        document_url: String,
-        document_status: {
-            type: String,
-            default: "PENDING",
-            enum: ["APPROVED", "UN_APPROVED", "PENDING"]
-        },
-    }],
-    notifications: [{
-        message: String,
-        redirectUrl: String,
-        body: String,
-        created: String,
-    }],
+    documents: [
+        {
+            _id: false,
+            document_title: String,
+            document_url: String,
+            document_status: {
+                type: String,
+                default: "UNDER_VERIFICATION",
+                enum: ["APPROVED", "UN_APPROVED", "UNDER_VERIFICATION"]
+            }
+        }
+    ],
+    notifications: [
+        {
+            message: String,
+            redirectUrl: String,
+            body: String,
+            created: String
+        }
+    ],
     unseenNotifications: {
         type: Number,
-        default: 0,
+        default: 0
     },
     web_push_token: {
         type: String,
-        default: "",
+        default: ""
     },
     device_token: {
         type: String,
-        default: "",
+        default: ""
     },
-    remarks: [{
-        text: {
-            type: String,
-            default: ""
-        },
-        created: {
-            type: Date,
-            default: Date.now()
-        },
-        user_details: Object,
-    }],
-    history: [{
-        text: {
-            type: String,
-            default: ""
-        },
-        created: {
-            type: Date,
-            default: Date.now()
-        },
-        action_created_by_user_id: {
-            type: String, // ["users", "admins"]
-            default: ""
-        },
-        action_created_by_user_role: {
-            type: String,
-            enum: ["ADMIN", "EMPLOYEE", "AGENT", "STUDENT"],
-            required: [true, "User role are required"]
+    remarks: [
+        {
+            text: {
+                type: String,
+                default: ""
+            },
+            created: {
+                type: Date,
+                default: Date.now()
+            },
+            user_details: Object
         }
-    }]
-},
-    { timestamps: true });
+    ],
+    history: [
+        {
+            text: {
+                type: String,
+                default: ""
+            },
+            created: {
+                type: Date,
+                default: Date.now()
+            },
+            action_created_by_user_id: {
+                type: String, // ["users", "admins"]
+                default: ""
+            },
+            action_created_by_user_role: {
+                type: String,
+                enum: [
+                    "ADMIN", "EMPLOYEE", "AGENT", "STUDENT"
+                ],
+                required: [true, "User role are required"]
+            }
+        }
+    ]
+}, {timestamps: true});
 
 // Compile model from schema
 module.exports = StudentModel = model("student", studentSchema);

@@ -185,6 +185,25 @@ const agentSchema = new Schema({
         type: String,
         default: "",
     },
+    history: [{
+        text: {
+            type: String,
+            default: ""
+        },
+        created: {
+            type: Date,
+            default: Date.now()
+        },
+        action_created_by_user_id: {
+            type: String, // ["users", "admins"]
+            default: ""
+        },
+        action_created_by_user_role: {
+            type: String,
+            enum: ["ADMIN", "EMPLOYEE", "AGENT", "STUDENT"],
+            required: [true, "User role are required"]
+        }
+    }]
 });
 
 // Compile model from schema

@@ -192,7 +192,7 @@ const schoolSchema = new Schema({
             },
 
             acceptable_band: {
-                type: Number,
+                type: Types.Decimal128,
                 description: "Acceptable band must be of Number type"
             },
             module: {

@@ -2,6 +2,7 @@ const StudentModel = require("../models/student");
 const SchoolModel = require("../models/schools");
 const EnrollModel = require("../models/enrolls");
 const CountryModel = require("../models/country");
+const DocsRequiredModel = require("../models/docsRequired");
 
 const AssessmentForm = require("../models/assessmentForm");
 const QueriesForm = require("../models/queriesform");
@@ -37,7 +38,9 @@ const appendNotification = async (
   await model.updateMany(
     model == AdminModel
       ? {
-          role: { $in: users },
+          role: {
+            $in: users,
+          },
         }
       : {},
     {
@@ -64,8 +67,8 @@ const appendNotification = async (
   }
 
   try {
-    // let ENDPOINT = "https://learnglobal-backend.onrender.com/notification"
-    let ENDPOINT = "http://localhost:3006/notification";
+    let ENDPOINT = "https://learn-global-backend.onrender.com/notification";
+    // let ENDPOINT = "http://localhost:3006/notification";
 
     console.log({ user });
 
@@ -110,10 +113,7 @@ const appendHistory = async (model, userId, userRole, text) => {
     });
     await userData.save();
 
-    return {
-      status: "1",
-      message: "History Added Successfully",
-    };
+    return { status: "1", message: "History Added Successfully" };
   } catch (error) {
     console.log({ error });
     return {
@@ -132,10 +132,7 @@ const verifyToken = async (req, res) => {
   var userDetails = await StudentModel.findOne({ _id: userId });
 
   if (!userDetails) {
-    res.json({
-      status: "0",
-      message: "User not found",
-    });
+    res.json({ status: "0", message: "User not found" });
     return;
   }
 
@@ -159,25 +156,36 @@ const verifyToken = async (req, res) => {
     status: "1",
     message: "Verified and web push token saved successfully",
     details: {
-        userData: req.userData,
-        // totalAgentsUnapproved: totalAgentsUnapproved.length,
-        // totalAssessmentForms: totalAssessmentForms.length,
-        // totalSearchQueryForms: totalSearchQueryForms.length,
-    }
+      userData: req.userData,
+      // totalAgentsUnapproved: totalAgentsUnapproved.length,
+      // totalAssessmentForms: totalAssessmentForms.length,
+      // totalSearchQueryForms: totalSearchQueryForms.length,
+    },
   });
 };
 
 async function verifyGoogleAuthToken(token) {
-  //   const fetch = await import("node-fetch");
-  const res = await fetch(
+  // const fetch = await import("node-fetch");
+  const res = await axios.get(
     "https://oauth2.googleapis.com/tokeninfo?id_token=" + token
   );
-  return res.json();
+  //   const res = await fetch(
+  //     "https://oauth2.googleapis.com/tokeninfo?id_token=" + token
+  //   );
+  return res.data;
 }
 
 const studentGoogleLogin = async (req, res) => {
+  console.log({ googleLoginBody: req.body });
+  if (!req?.body?.tokens?.idToken) {
+    res.json({ status: "0", message: "Id Token required for Google Login" });
+    return;
+  }
+
   var myres = await verifyGoogleAuthToken(req.body.tokens.idToken);
+  console.log({ myres });
   if (myres) {
+    console.log(myres);
     if (req.body.uid == myres.sub) {
       // check email is already register or not
       // yes
@@ -243,6 +251,18 @@ const studentGoogleLogin = async (req, res) => {
 
         const token = jwt.sign(data, jwtSecretKey);
 
+        let msg = `Student Register (${student.email})`;
+        let url = `/d/admin/studentprofile?id=${student._id}`;
+        await appendNotification(AdminModel, [], msg, url);
+
+        let historyResponse = await appendHistory(
+          StudentModel,
+          student._id,
+          "STUDENT",
+          "Registration successful"
+        );
+        console.log({ historyResponse });
+
         res.json({
           status: "1",
           message: "Student Register Successfully",
@@ -259,17 +279,11 @@ const studentGoogleLogin = async (req, res) => {
       return;
     }
 
-    res.json({
-      status: "0",
-      message: "Invalid Login",
-    });
+    res.json({ status: "0", message: "Invalid Login" });
     return;
   }
 
-  res.json({
-    status: "0",
-    message: "UID not found",
-  });
+  res.json({ status: "0", message: "UID not found" });
 };
 
 const studentLogin = async (req, res) => {
@@ -277,13 +291,17 @@ const studentLogin = async (req, res) => {
     const { data, password } = req.body;
     console.log(req.body);
     let student = await StudentModel.findOne({
-      $or: [{ phone: data }, { email: data }],
+      $or: [
+        {
+          phone: data,
+        },
+        {
+          email: data,
+        },
+      ],
     });
     if (!student) {
-      res.json({
-        status: 0,
-        message: "Student not exist",
-      });
+      res.json({ status: 0, message: "Student not exist" });
     } else {
       console.log({ password: student.password, password2: password });
 
@@ -309,19 +327,13 @@ const studentLogin = async (req, res) => {
         }
 
         if (!result) {
-          res.json({
-            status: "0",
-            message: "Password is wrong",
-          });
+          res.json({ status: "0", message: "Password is wrong" });
           return;
         }
 
         // // now check email verification
         if (student.emailVerified == "UN_VERIFIED") {
-          res.json({
-            status: "0",
-            message: "Please verify your email",
-          });
+          res.json({ status: "0", message: "Please verify your email" });
           return;
         }
 
@@ -360,7 +372,9 @@ const studentLogin = async (req, res) => {
     res.json({
       status: "0",
       message: "Server Error Occured",
-      details: { error },
+      details: {
+        error,
+      },
     });
   }
 };
@@ -368,23 +382,25 @@ const studentLogin = async (req, res) => {
 const studentRegister = async (req, res) => {
   try {
     const { email, password, firstName, lastName, phone } = req.body;
-
     if (!email || email == "") {
-      res.json({
-        status: "0",
-        message: "Email is required",
-      });
+      res.json({ status: "0", message: "Email is required" });
       return;
     }
     if (!phone || phone == "") {
-      res.json({
-        status: "0",
-        message: "Phone is required",
-      });
+      res.json({ status: "0", message: "Phone is required" });
       return;
     }
 
-    let student = await StudentModel.findOne({ $or: [{ phone }, { email }] });
+    let student = await StudentModel.findOne({
+      $or: [
+        {
+          phone,
+        },
+        {
+          email,
+        },
+      ],
+    });
     if (student) {
       let error = [];
       if (student.phone == phone) {
@@ -399,9 +415,15 @@ const studentRegister = async (req, res) => {
       });
     } else {
       if (!password) {
+        res.json({ status: "0", message: "Password is required" });
+        return;
+      }
+
+      if (password?.length < 6) {
         res.json({
           status: "0",
-          message: "Password is required",
+          name: "ValidationError",
+          message: "Password must have minimum 6 characters",
         });
         return;
       }
@@ -414,15 +436,6 @@ const studentRegister = async (req, res) => {
             details: {
               error: err,
             },
-          });
-          return;
-        }
-
-        if (password?.length < 6) {
-          res.json({
-            status: "0",
-            name: "ValidationError",
-            message: "Password must have minimum 6 characters",
           });
           return;
         }
@@ -450,7 +463,9 @@ const studentRegister = async (req, res) => {
               status: "0",
               name: "ValidationError",
               message: "Validation Error",
-              details: { error: errorsData },
+              details: {
+                error: errorsData,
+              },
             });
             return;
           }
@@ -471,14 +486,15 @@ const studentRegister = async (req, res) => {
         console.log(data);
 
         const token = jwt.sign(data, jwtSecretKey);
-        // let ENDPOINT = "https://learnglobal-backend.onrender.com";
-        let ENDPOINT = "http://localhost:3000";
+        let ENDPOINT = "https://learn-global.onrender.com";
+        // let ENDPOINT = "http://localhost:3000";
 
         sendConfirmationEmail(firstName, email, token, ENDPOINT + "/d/student");
 
         let msg = `Student Register (${student.email})`;
         let url = `/d/admin/studentprofile?id=${student._id}`;
-        await appendNotification(AdminModel, [], msg, url);
+        await appendNotification(AdminModel, ["ADMIN"], msg, url);
+
         let historyResponse = await appendHistory(
           StudentModel,
           student._id,
@@ -505,7 +521,9 @@ const studentRegister = async (req, res) => {
     res.json({
       status: "0",
       message: "Server Error Occured",
-      details: { error },
+      details: {
+        error,
+      },
     });
   }
 };
@@ -515,21 +533,17 @@ const studentConfirmEmail = async (req, res) => {
   console.log({ data: req.userData });
 
   try {
-    await StudentModel.findByIdAndUpdate(userId, {
-      emailVerified: "VERIFIED",
-    });
+    await StudentModel.findByIdAndUpdate(userId, { emailVerified: "VERIFIED" });
 
-    res.json({
-      status: "1",
-      message: "Email Verified Successfully",
-      userId,
-    });
+    res.json({ status: "1", message: "Email Verified Successfully", userId });
   } catch (error) {
     console.log(error);
     res.json({
       status: "0",
       message: "Server Error Occured",
-      details: { error },
+      details: {
+        error,
+      },
     });
   }
 };
@@ -541,10 +555,7 @@ const resendEmail = async (req, res) => {
   let student = await StudentModel.findOne({ _id: userId });
 
   if (!student) {
-    res.json({
-      status: "0",
-      message: "Student Not Found",
-    });
+    res.json({ status: "0", message: "Student Not Found" });
     return;
   }
 
@@ -557,8 +568,8 @@ const resendEmail = async (req, res) => {
   };
 
   const token = jwt.sign(data, jwtSecretKey);
-  // let ENDPOINT = "https://learnglobal-backend.onrender.com";
-  let ENDPOINT = "http://localhost:3000";
+  let ENDPOINT = "https://learn-global.onrender.com";
+  // let ENDPOINT = "http://localhost:3000";
 
   sendConfirmationEmail(
     student.firstName,
@@ -581,10 +592,7 @@ const getEmailVerification = async (req, res) => {
   let student = await StudentModel.findOne({ _id: userId });
 
   if (!student) {
-    res.json({
-      status: "0",
-      message: "Student Not Found",
-    });
+    res.json({ status: "0", message: "Student Not Found" });
     return;
   }
 
@@ -663,11 +671,12 @@ const studentSearch = async (req, res) => {
     var scoreAvg = scoreSum / scoreArr.length;
 
     overall = Math.round(scoreAvg / 0.5) * 0.5;
+    console.log({ overall });
+
     examdata = {
-      $or: [
-        { "school_programs.overall_band": { $lt: overall } },
-        { "school_programs.overall_band": { $eq: overall } },
-      ],
+      "school_programs.overall_band": {
+        $lte: overall,
+      },
     };
 
     // minimum band
@@ -678,31 +687,48 @@ const studentSearch = async (req, res) => {
     var mymodule = exam.score.reduce((prev, curr) => {
       return curr == mymin ? prev + 1 : prev;
     }, 0);
-    var newquery = overallCheckingArr.map((item) => {
-      return {
-        $or: [
-          { "school_programs.overall_band": { $lt: item } },
-          { "school_programs.overall_band": { $eq: item } },
-        ],
-      };
-    });
-    if (overallCheckingArr.length != 0) {
-      newquery = { $and: [...newquery] };
-    } else {
-      newquery = {};
-    }
+
+    // #CHANGE 01 March, 2023
+    // var newquery = overallCheckingArr.map((item) => {
+    // return {
+    //     $or: [
+    //       { "school_programs.overall_band": { $lt: item } },
+    //       { "school_programs.overall_band": { $eq: item } },
+    //     ],
+    // };
+    // });
+    // if (overallCheckingArr.length != 0) {
+    // newquery = { $and: [...newquery] };
+    // } else {
+    // }
   } else if (exam.type == "PTE") {
     examdata = {
       $or: [
-        { "school_programs.pte_score": { $lt: parseFloat(exam.score) } },
-        { "school_programs.pte_score": { $eq: parseFloat(exam.score) } },
+        {
+          "school_programs.pte_score": {
+            $lt: parseFloat(exam.score),
+          },
+        },
+        {
+          "school_programs.pte_score": {
+            $eq: parseFloat(exam.score),
+          },
+        },
       ],
     };
   } else if (exam.type == "TOFEL") {
     examdata = {
       $or: [
-        { "school_programs.tofel_point": { $lt: parseFloat(exam.score) } },
-        { "school_programs.tofel_point": { $eq: parseFloat(exam.score) } },
+        {
+          "school_programs.tofel_point": {
+            $lt: parseFloat(exam.score),
+          },
+        },
+        {
+          "school_programs.tofel_point": {
+            $eq: parseFloat(exam.score),
+          },
+        },
       ],
     };
   }
@@ -766,20 +792,37 @@ const studentSearch = async (req, res) => {
                 },
               }
             : {},
-          { ...examdata },
-          mymin < 6 && mymodule < 4
+          {
+            $and: [
+              {
+                ...examdata,
+              },
+              mymin < 6 && mymodule < 4
+                ? {
+                    $and: [
+                      {
+                        "school_programs.acceptable_band": {
+                          $lte: mymin,
+                        },
+                      },
+                      {
+                        "school_programs.module": {
+                          $gte: mymodule,
+                        },
+                      },
+                    ],
+                  }
+                : {},
+            ],
+          },
+          school_type
             ? {
-                $or: [
-                  { "school_programs.acceptable_band": { $lt: mymin } },
-                  { "school_programs.acceptable_band": { $eq: mymin } },
-                ],
-                $or: [
-                  { "school_programs.module": { $gt: mymodule } },
-                  { "school_programs.module": { $eq: mymodule } },
-                ],
+                type: {
+                  $regex: school_type,
+                  $options: "i",
+                },
               }
             : {},
-          school_type ? { type: { $regex: school_type, $options: "i" } } : {},
           fees
             ? {
                 $or: [
@@ -838,22 +881,54 @@ const studentSearch = async (req, res) => {
     {
       $group: {
         _id: "$_id",
-        school_name: { $first: "$school_name" },
-        school_about: { $first: "$school_about" },
-        school_location: { $first: "$school_location" },
-        country: { $first: "$country" },
-        state: { $first: "$state" },
-        city: { $first: "$city" },
-        type: { $first: "$type" },
-        total_student: { $first: "$total_student" },
-        international_student: { $first: "$international_student" },
-        accomodation_feature: { $first: "$accomodation_feature" },
-        work_permit_feature: { $first: "$work_permit_feature" },
-        program_cooporation: { $first: "$program_cooporation" },
-        work_while_study: { $first: "$work_while_study" },
-        condition_offer_letter: { $first: "$condition_offer_letter" },
-        library: { $first: "$library" },
-        founded: { $first: "$founded" },
+        school_name: {
+          $first: "$school_name",
+        },
+        school_about: {
+          $first: "$school_about",
+        },
+        school_location: {
+          $first: "$school_location",
+        },
+        country: {
+          $first: "$country",
+        },
+        state: {
+          $first: "$state",
+        },
+        city: {
+          $first: "$city",
+        },
+        type: {
+          $first: "$type",
+        },
+        total_student: {
+          $first: "$total_student",
+        },
+        international_student: {
+          $first: "$international_student",
+        },
+        accomodation_feature: {
+          $first: "$accomodation_feature",
+        },
+        work_permit_feature: {
+          $first: "$work_permit_feature",
+        },
+        program_cooporation: {
+          $first: "$program_cooporation",
+        },
+        work_while_study: {
+          $first: "$work_while_study",
+        },
+        condition_offer_letter: {
+          $first: "$condition_offer_letter",
+        },
+        library: {
+          $first: "$library",
+        },
+        founded: {
+          $first: "$founded",
+        },
         school_programs: {
           $push: {
             program_id: "$school_programs.program_id",
@@ -893,8 +968,12 @@ const studentSearch = async (req, res) => {
         },
       },
     },
-    { $skip: (currentPage - 1) * perPage },
-    { $limit: perPage },
+    {
+      $skip: (currentPage - 1) * perPage,
+    },
+    {
+      $limit: perPage,
+    },
   ]);
 
   var totalData_all = await SchoolModel.aggregate([
@@ -941,20 +1020,37 @@ const studentSearch = async (req, res) => {
                 },
               }
             : {},
-          { ...examdata },
-          mymin < 6 && mymodule < 4
+          {
+            $and: [
+              {
+                ...examdata,
+              },
+              mymin < 6 && mymodule < 4
+                ? {
+                    $and: [
+                      {
+                        "school_programs.acceptable_band": {
+                          $lte: mymin,
+                        },
+                      },
+                      {
+                        "school_programs.module": {
+                          $gte: mymodule,
+                        },
+                      },
+                    ],
+                  }
+                : {},
+            ],
+          },
+          school_type
             ? {
-                $or: [
-                  { "school_programs.acceptable_band": { $lt: mymin } },
-                  { "school_programs.acceptable_band": { $eq: mymin } },
-                ],
-                $or: [
-                  { "school_programs.module": { $gt: mymodule } },
-                  { "school_programs.module": { $eq: mymodule } },
-                ],
+                type: {
+                  $regex: school_type,
+                  $options: "i",
+                },
               }
             : {},
-          school_type ? { type: { $regex: school_type, $options: "i" } } : {},
           fees
             ? {
                 $or: [
@@ -989,10 +1085,6 @@ const studentSearch = async (req, res) => {
                       }
                     : {},
                 ],
-                // [
-                // { $and: [{ 'school_programs.min_tution_fee_per_semester': { $lt: parseFloat(fees.min) } }, { 'school_programs.min_tution_fee_per_semester': { $eq: parseFloat(fees.min) } }] },
-                // { $and: [{ 'school_programs.max_tution_fee': { $qt: parseFloat(fees.max) } }, { 'school_programs.max_tution_fee': { $eq: parseFloat(fees.max) } }] }
-                // ]
               }
             : {},
           grade_score || parseFloat(grade_score) == 0
@@ -1017,22 +1109,54 @@ const studentSearch = async (req, res) => {
     {
       $group: {
         _id: "$_id",
-        school_name: { $first: "$school_name" },
-        school_about: { $first: "$school_about" },
-        school_location: { $first: "$school_location" },
-        country: { $first: "$country" },
-        state: { $first: "$state" },
-        city: { $first: "$city" },
-        type: { $first: "$type" },
-        total_student: { $first: "$total_student" },
-        international_student: { $first: "$international_student" },
-        accomodation_feature: { $first: "$accomodation_feature" },
-        work_permit_feature: { $first: "$work_permit_feature" },
-        program_cooporation: { $first: "$program_cooporation" },
-        work_while_study: { $first: "$work_while_study" },
-        condition_offer_letter: { $first: "$condition_offer_letter" },
-        library: { $first: "$library" },
-        founded: { $first: "$founded" },
+        school_name: {
+          $first: "$school_name",
+        },
+        school_about: {
+          $first: "$school_about",
+        },
+        school_location: {
+          $first: "$school_location",
+        },
+        country: {
+          $first: "$country",
+        },
+        state: {
+          $first: "$state",
+        },
+        city: {
+          $first: "$city",
+        },
+        type: {
+          $first: "$type",
+        },
+        total_student: {
+          $first: "$total_student",
+        },
+        international_student: {
+          $first: "$international_student",
+        },
+        accomodation_feature: {
+          $first: "$accomodation_feature",
+        },
+        work_permit_feature: {
+          $first: "$work_permit_feature",
+        },
+        program_cooporation: {
+          $first: "$program_cooporation",
+        },
+        work_while_study: {
+          $first: "$work_while_study",
+        },
+        condition_offer_letter: {
+          $first: "$condition_offer_letter",
+        },
+        library: {
+          $first: "$library",
+        },
+        founded: {
+          $first: "$founded",
+        },
         school_programs: {
           $push: {
             program_id: "$school_programs.program_id",
@@ -1087,9 +1211,13 @@ const studentSearch = async (req, res) => {
       totalSchools,
       totalPrograms,
       noMore,
+      overall,
+      mymin,
+      mymodule,
     },
   });
 };
+
 const getNotifications = async (req, res) => {
   console.log(req.userData);
   const { userId } = req.userData;
@@ -1115,6 +1243,11 @@ const getHistory = async (req, res) => {
   }
 
   const studentdata = await StudentModel.findById(userId);
+
+  if (!studentdata) {
+    res.json({ status: "0", message: "Student not found" });
+    return;
+  }
 
   // const studentdata = await StudentModel.aggregate([
   //     {
@@ -1180,10 +1313,7 @@ const enrollProgram = async (req, res) => {
   // get student details
   let student = await StudentModel.findOne({ _id: student_id });
   if (!student) {
-    res.json({
-      status: "0",
-      message: "Student not found",
-    });
+    res.json({ status: "0", message: "Student not found" });
     return;
   }
 
@@ -1207,20 +1337,48 @@ const enrollProgram = async (req, res) => {
     {
       $group: {
         _id: "$_id",
-        school_name: { $first: "$school_name" },
-        school_about: { $first: "$school_about" },
-        school_location: { $first: "$school_location" },
-        country: { $first: "$country" },
-        type: { $first: "$type" },
-        total_student: { $first: "$total_student" },
-        international_student: { $first: "$international_student" },
-        accomodation_feature: { $first: "$accomodation_feature" },
-        work_permit_feature: { $first: "$work_permit_feature" },
-        program_cooporation: { $first: "$program_cooporation" },
-        work_while_study: { $first: "$work_while_study" },
-        condition_offer_letter: { $first: "$condition_offer_letter" },
-        library: { $first: "$library" },
-        founded: { $first: "$founded" },
+        school_name: {
+          $first: "$school_name",
+        },
+        school_about: {
+          $first: "$school_about",
+        },
+        school_location: {
+          $first: "$school_location",
+        },
+        country: {
+          $first: "$country",
+        },
+        type: {
+          $first: "$type",
+        },
+        total_student: {
+          $first: "$total_student",
+        },
+        international_student: {
+          $first: "$international_student",
+        },
+        accomodation_feature: {
+          $first: "$accomodation_feature",
+        },
+        work_permit_feature: {
+          $first: "$work_permit_feature",
+        },
+        program_cooporation: {
+          $first: "$program_cooporation",
+        },
+        work_while_study: {
+          $first: "$work_while_study",
+        },
+        condition_offer_letter: {
+          $first: "$condition_offer_letter",
+        },
+        library: {
+          $first: "$library",
+        },
+        founded: {
+          $first: "$founded",
+        },
         program_details: {
           $first: {
             program_id: "$school_programs.program_id",
@@ -1260,18 +1418,12 @@ const enrollProgram = async (req, res) => {
   ]);
 
   if (program.length == 0) {
-    res.json({
-      status: "0",
-      message: "Program or School is not found",
-    });
+    res.json({ status: "0", message: "Program or School is not found" });
     return;
   }
 
   if (!student) {
-    res.json({
-      status: "0",
-      message: "Student not found",
-    });
+    res.json({ status: "0", message: "Student not found" });
     return;
   }
 
@@ -1285,26 +1437,19 @@ const enrollProgram = async (req, res) => {
   if (enrollDetails) {
     var program_a = program[0].program_details;
     delete program[0].program_details;
-    var program_b = program[0];
+    var schoolDetails = program[0];
 
     res.json({
       status: "0",
       message: "You already enrolled this program",
       details: {
         ...enrollDetails._doc,
-        school: program_b,
+        school: schoolDetails,
         program: program_a,
       },
     });
     return;
   }
-
-  console.log({
-    student_id: student_id,
-    school_id: school_id,
-    program_id: program_id,
-    enroll_status: "PENDING",
-  });
 
   let newEnroll = new EnrollModel({
     student_id: ObjectId(student_id),
@@ -1314,6 +1459,60 @@ const enrollProgram = async (req, res) => {
   });
 
   try {
+    // now check documents of students according to enrolled country
+
+    let studentDetails = await StudentModel.findById(student_id);
+    let allDocs = [];
+    // get Required Documents
+    let doc = await DocsRequiredModel.findOne({
+      countryName: program[0].country.toLowerCase(),
+    });
+    allDocs = doc.docsRequired;
+
+    // remove duplicate documents
+    allDocs = Array.from(new Set(allDocs));
+    finalDocs = [];
+    let required = false;
+    let underVerification = false;
+    for (let j = 0; j < allDocs.length; j++) {
+      let doc = allDocs[j];
+      let find = false;
+      for (let i = 0; i < studentDetails.documents.length; i++) {
+        if (doc == studentDetails.documents[i].document_title) {
+          if (studentDetails.documents[i].document_status == "UN_APPROVED") {
+            required = true;
+          }
+          if (
+            studentDetails.documents[i].document_status == "UNDER_VERIFICATION"
+          ) {
+            underVerification = true;
+          }
+          finalDocs.push({
+            document_title: studentDetails.documents[i].document_title,
+            document_url: studentDetails.documents[i].document_url,
+            document_status: studentDetails.documents[i].document_status,
+          });
+          find = true;
+        }
+      }
+      if (!find) {
+        // required
+        finalDocs.push({
+          document_title: doc,
+          document_url: "",
+          document_status: "PENDING",
+        });
+        required = true;
+      }
+    }
+    // final docs found successfully in "finalDocs"
+    console.log({ finalDocs });
+    console.log({ required, underVerification });
+    if (required || underVerification) {
+      newEnroll.enroll_status = "PENDING";
+    } else {
+      newEnroll.enroll_status = "UNDER_VERIFICATION";
+    }
     await newEnroll.save();
 
     let msg =
@@ -1338,11 +1537,13 @@ const enrollProgram = async (req, res) => {
       },
     });
   } catch (error) {
-    console.log({ error: error.message });
+    console.log({ error: error });
     res.json({
       status: "0",
       message: "Validation Error",
-      details: { error },
+      details: {
+        error,
+      },
     });
   }
 };
@@ -1402,12 +1603,66 @@ const getEnrollPrograms = async (req, res) => {
     },
   ]);
 
+  let studentDetails = await StudentModel.findById(student_id);
+  let allDocs = [];
+  // get Required Documents
+  for (let i = 0; i < enrolledList.length; i++) {
+    let countryData = await CountryModel.findOne({
+      countryId: enrolledList[i].school_details.school_meta_details.country,
+    });
+    let doc = await DocsRequiredModel.findOne({
+      countryName: countryData.countryName.toLowerCase(),
+    });
+    allDocs = [...allDocs, ...doc.docsRequired];
+  }
+  // remove duplicate documents
+  allDocs = Array.from(new Set(allDocs));
+  finalDocs = [];
+  let required = false;
+  let underVerification = false;
+  for (let j = 0; j < allDocs.length; j++) {
+    let doc = allDocs[j];
+    let find = false;
+    for (let i = 0; i < studentDetails.documents.length; i++) {
+      if (doc == studentDetails.documents[i].document_title) {
+        if (studentDetails.documents[i].document_status == "UN_APPROVED") {
+          required = true;
+        }
+        if (
+          studentDetails.documents[i].document_status == "UNDER_VERIFICATION"
+        ) {
+          underVerification = true;
+        }
+        finalDocs.push({
+          document_title: studentDetails.documents[i].document_title,
+          document_url: studentDetails.documents[i].document_url,
+          document_status: studentDetails.documents[i].document_status,
+        });
+        find = true;
+      }
+    }
+    if (!find) {
+      // required
+      finalDocs.push({
+        document_title: doc,
+        document_url: "",
+        document_status: "PENDING",
+      });
+      required = true;
+    }
+  }
+  // final docs found successfully in "finalDocs"
+
   res.json({
     status: "1",
     message: "Enrolled Programs details found",
     details: {
       enrolled_list: enrolledList,
-      baseUrl: fullUrl + "/uploads/agent/",
+      baseUrl: fullUrl + "/uploads/student/",
+      student: studentDetails,
+      documents: finalDocs,
+      isDocsRequired: required,
+      underVerification: underVerification,
     },
   });
 };
@@ -1417,28 +1672,61 @@ const uploadDocument = async (req, res) => {
     const { userId } = req.userData;
     console.log(req.body);
     console.log(req.file);
+    console.log(req.userData);
     var student = await StudentModel.findOne({ _id: userId });
-    student.documents.push({
-      document_title: req.body.title,
-      document_url: req.file.filename,
-    });
+    let find = false;
+    for (let i = 0; i < student.documents.length; i++) {
+      if (student.documents[i].document_title == req.body.title) {
+        console.log("Change Docs ===================================> ");
+        find = true;
+        student.documents[i].document_url = req.file.filename;
+        student.documents[i].document_status = "UNDER_VERIFICATION";
+        var text = req.body.title + " Document Changed";
+        console.log({ docs: student.documents });
+        // student.documents = oldDocs
+        await student.save();
 
-    let text = req.body.title + " Document Uploaded";
-    let userRole = "STUDENT";
-    await appendHistory(StudentModel, userId, userRole, text);
+        let userRole = "STUDENT";
+        await appendHistory(StudentModel, userId, userRole, text);
 
-    student.save();
+        res.json({
+          status: "1",
+          message: "Student Document Upload Successfully",
+          details: {
+            document: {
+              document_title: req.body.title,
+              document_url: req.file.filename,
+              document_status: "UNDER_VERIFICATION",
+            },
+          },
+        });
+        return;
+      }
+    }
+    if (!find) {
+      console.log("upload new document");
+      student.documents.push({
+        document_title: req.body.title,
+        document_url: req.file.filename,
+        document_status: "UNDER_VERIFICATION",
+      });
+      await student.save();
 
-    res.json({
-      status: "1",
-      message: "Student Document Upload Successfully",
-      details: {
-        document: {
-          document_title: req.body.title,
-          document_url: req.file.filename,
+      let userRole = "STUDENT";
+      await appendHistory(StudentModel, userId, userRole, text);
+
+      res.json({
+        status: "1",
+        message: "Student Document Upload Successfully",
+        details: {
+          document: {
+            document_title: req.body.title,
+            document_url: req.file.filename,
+            document_status: "UNDER_VERIFICATION",
+          },
         },
-      },
-    });
+      });
+    }
   } catch (error) {
     console.log(error);
     res.json({
@@ -1465,14 +1753,13 @@ const submitAllDocs = async (req, res) => {
   let userRole = "STUDENT";
   await appendHistory(StudentModel, userId, userRole, text);
 
-  res.json({
-    status: "1",
-    message: "All Documents Submitted Successfully",
-  });
+  res.json({ status: "1", message: "All Documents Submitted Successfully" });
 };
 
 const getDocuments = async (req, res) => {
   try {
+    const student_id = req.userData.userId;
+
     const protocol = req.protocol;
     const host = req.hostname;
     const url = req.originalUrl;
@@ -1480,18 +1767,110 @@ const getDocuments = async (req, res) => {
 
     const fullUrl = `${protocol}://${host}:${port}`;
 
-    const { userId } = req.userData;
-    var student = await StudentModel.findOne({ _id: userId });
+    // get enrolledList details
+    let enrolledList = await EnrollModel.aggregate([
+      {
+        $match: {
+          student_id: ObjectId(student_id),
+        },
+      },
+      {
+        $lookup: {
+          from: "schools",
+          localField: "school_id",
+          foreignField: "_id",
+          as: "school_details",
+        },
+      },
+      {
+        $unwind: {
+          path: "$school_details",
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          "school_details.school_name": 1,
+          "school_details.country": 1,
+        },
+      },
+    ]);
+
+    let studentDetails = await StudentModel.findById(student_id);
+
+    let allDocs = [];
+    // get Required Documents
+    for (let i = 0; i < enrolledList.length; i++) {
+      try {
+        var doc = await DocsRequiredModel.findOne({
+          countryName: enrolledList[i].school_details.country.toLowerCase(),
+        });
+        console.log({ doc });
+      } catch (error) {
+        console.log({ error });
+        continue;
+      }
+      allDocs = [...allDocs, ...doc.docsRequired];
+    }
+
+    // remove dublicate docuents
+    allDocs = new Set(allDocs);
+    allDocs = Array.from(allDocs);
+    finalDocs = [];
+    let required = false;
+    for (let j = 0; j < allDocs.length; j++) {
+      let doc = allDocs[j];
+      let find = false;
+      for (let i = 0; i < studentDetails.documents.length; i++) {
+        if (doc == studentDetails.documents[i].document_title) {
+          find = true;
+          if (studentDetails.documents[i].document_status == "UN_APPROVED") {
+            required = true;
+          }
+          console.log({
+            document_title: studentDetails.documents[i].document_title,
+            document_url: studentDetails.documents[i].document_url,
+            document_status: studentDetails.documents[i].document_status,
+          });
+          finalDocs.push({
+            document_title: studentDetails.documents[i].document_title,
+            document_url: studentDetails.documents[i].document_url,
+            document_status: studentDetails.documents[i].document_status,
+          });
+        }
+      }
+      if (!find) {
+        // required
+        finalDocs.push({
+          document_title: doc,
+          document_url: "",
+          document_status: "PENDING",
+        });
+        required = true;
+      }
+    }
+
+    // console.log({ finalDocs })
 
     res.json({
       status: "1",
-      message: "Document Fetched",
+      message: "Required Documents Found",
       details: {
-        documents: student.documents,
-        student: student,
         baseUrl: fullUrl + "/uploads/student/",
+        student: studentDetails,
+        documents: finalDocs,
       },
     });
+
+    // res.json({
+    // status: "1",
+    // message: "Document Fetched",
+    // details: {
+    //     documents: student.documents,
+    //     student: student,
+    //     baseUrl: fullUrl + "/uploads/student/",
+    // },
+    // });
   } catch (error) {
     res.json({
       status: "0",
@@ -1513,10 +1892,7 @@ const studentUpdate = async (req, res) => {
     }
     console.log(Object.keys(req.body).length);
     if (Object.keys(req.body).length == 0) {
-      res.json({
-        status: "0",
-        message: "Nothing to Update",
-      });
+      res.json({ status: "0", message: "Nothing to Update" });
       return;
     }
 
@@ -1536,17 +1912,16 @@ const studentUpdate = async (req, res) => {
       res.json({
         status: "0",
         message: "Unknown fields pass",
-        details: { unknown_keys: notAllowedkeys },
+        details: {
+          unknown_keys: notAllowedkeys,
+        },
       });
       return;
     }
 
     let student = await StudentModel.findOne({ _id: userId });
     if (!student) {
-      res.json({
-        status: "0",
-        message: "Student not found.",
-      });
+      res.json({ status: "0", message: "Student not found." });
     } else {
       let changes = false;
       for (let index = 0; index < Object.keys(req.body).length; index++) {
@@ -1558,15 +1933,14 @@ const studentUpdate = async (req, res) => {
       }
 
       if (changes == false) {
-        res.json({
-          status: "0",
-          message: "Nothing to Update",
-        });
+        res.json({ status: "0", message: "Nothing to Update" });
         return;
       }
 
       var studentdata = await StudentModel.updateOne(
-        { _id: userId },
+        {
+          _id: userId,
+        },
         { $set: req.body }
       );
 
@@ -1631,7 +2005,9 @@ const studentUpdate = async (req, res) => {
             status: "0",
             name: "ValidationError",
             message: "Validation Error",
-            details: { error: errorsData },
+            details: {
+              error: errorsData,
+            },
           });
           return;
         }
@@ -1654,30 +2030,120 @@ const studentUpdate = async (req, res) => {
     res.json({
       status: "0",
       message: "Server Error Occured",
-      details: { error },
+      details: {
+        error,
+      },
     });
   }
 };
 const studentProfile = async (req, res) => {
   try {
+    const protocol = req.protocol;
+    const host = req.hostname;
+    const url = req.originalUrl;
+    const port = process.env.PORT || 3006;
+
+    const fullUrl = `${protocol}://${host}:${port}`;
+
     if (req.userData.role == "ADMIN") {
-      var userId = req.query.id;
+      var student_id = req.query.id;
     } else {
-      var { userId } = req.userData;
+      var { student_id } = req.userData;
     }
-    let student = await StudentModel.findOne({ _id: userId });
+    let student = await StudentModel.findOne({ _id: student_id });
     if (!student) {
-      res.json({
-        status: "0",
-        message: "Student Not Found",
-      });
+      res.json({ status: "0", message: "Student Not Found" });
     } else {
+      // get enrolledList details
+      let enrolledList = await EnrollModel.aggregate([
+        {
+          $match: {
+            student_id: ObjectId(student_id),
+          },
+        },
+        {
+          $lookup: {
+            from: "schools",
+            localField: "school_id",
+            foreignField: "_id",
+            as: "school_details",
+          },
+        },
+        {
+          $unwind: {
+            path: "$school_details",
+          },
+        },
+        {
+          $project: {
+            _id: 1,
+            "school_details.school_name": 1,
+            "school_details.country": 1,
+          },
+        },
+      ]);
+
+      let studentDetails = await StudentModel.findById(student_id);
+
+      let allDocs = [];
+      // get Required Documents
+      for (let i = 0; i < enrolledList.length; i++) {
+        let doc = await DocsRequiredModel.findOne({
+          countryName: enrolledList[i].school_details.country.toLowerCase(),
+        });
+        if (doc) {
+          allDocs = [...allDocs, ...doc.docsRequired];
+        }
+      }
+      // remove dublicate docuents
+      allDocs = new Set(allDocs);
+      allDocs = Array.from(allDocs);
+      console.log({ allDocs });
+      finalDocs = [];
+      let required = false;
+      console.log({ docs: studentDetails.documents });
+
+      for (let j = 0; j < allDocs.length; j++) {
+        let doc = allDocs[j];
+        let find = false;
+        for (let i = 0; i < studentDetails.documents.length; i++) {
+          if (doc == studentDetails.documents[i].document_title) {
+            find = true;
+            if (studentDetails.documents[i].document_status == "UN_APPROVED") {
+              required = true;
+            }
+            console.log({
+              document_title: studentDetails.documents[i].document_title,
+              document_url: studentDetails.documents[i].document_url,
+              document_status: studentDetails.documents[i].document_status,
+            });
+            finalDocs.push({
+              document_title: studentDetails.documents[i].document_title,
+              document_url: studentDetails.documents[i].document_url,
+              document_status: studentDetails.documents[i].document_status,
+            });
+          }
+        }
+        if (!find) {
+          // required
+          finalDocs.push({
+            document_title: doc,
+            document_url: "",
+            document_status: "PENDING",
+          });
+          required = true;
+        }
+      }
+
+      // console.log({ finalDocs })
+      studentDetails.documents = finalDocs;
+
       res.json({
         status: "1",
         message: "Profile Fetch Successfully",
         details: {
-          student,
-          baseUrl: "https://learnglobal-backend.onrender.com",
+          baseUrl: fullUrl + "/uploads/student/",
+          student: studentDetails,
         },
       });
     }
@@ -1686,7 +2152,9 @@ const studentProfile = async (req, res) => {
     res.json({
       status: "0",
       message: "Server Error Occured",
-      details: { error },
+      details: {
+        error,
+      },
     });
   }
 };
@@ -1744,7 +2212,9 @@ const fillAssessmentForm = async (req, res) => {
             status: "0",
             name: "ValidationError",
             message: "Validation Error",
-            details: { error: errorsData },
+            details: {
+              error: errorsData,
+            },
           });
           return;
         }
@@ -1757,22 +2227,18 @@ const fillAssessmentForm = async (req, res) => {
       // let url = `/d/admin/studentprofile?id=${student._id}`
       // await appendNotification(AdminModel, [], msg, url)
 
-      res.json({
-        status: "1",
-        message: "Assessment Form Filled Successfully",
-      });
+      res.json({ status: "1", message: "Assessment Form Filled Successfully" });
     } else {
-      res.json({
-        status: "1",
-        message: "Assessment Form Filled Successfully",
-      });
+      res.json({ status: "1", message: "Assessment Form Filled Successfully" });
     }
   } catch (error) {
     console.log(error);
     res.json({
       status: "0",
       message: "Server Error Occured",
-      details: { error },
+      details: {
+        error,
+      },
     });
   }
 };
@@ -1859,7 +2325,9 @@ const fillsearchqueries = async (req, res) => {
             status: "0",
             name: "ValidationError",
             message: "Validation Error",
-            details: { error: errorsData },
+            details: {
+              error: errorsData,
+            },
           });
           return;
         }
@@ -1872,15 +2340,9 @@ const fillsearchqueries = async (req, res) => {
       // let url = `/d/admin/studentprofile?id=${student._id}`
       // await appendNotification(AdminModel, [], msg, url)
 
-      res.json({
-        status: "1",
-        message: "Query Form Filled Successfully",
-      });
+      res.json({ status: "1", message: "Query Form Filled Successfully" });
     } else {
-      return {
-        status: "1",
-        message: "Query Form Filled Successfully",
-      };
+      return { status: "1", message: "Query Form Filled Successfully" };
     }
   } catch (error) {
     console.log(error);
@@ -1892,15 +2354,10 @@ const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
 
-    let student = await StudentModel.findOne({
-      email,
-    });
+    let student = await StudentModel.findOne({ email });
 
     if (!student) {
-      res.json({
-        status: "0",
-        message: "Email not found",
-      });
+      res.json({ status: "0", message: "Email not found" });
       return;
     }
 
@@ -1929,8 +2386,8 @@ const forgotPassword = async (req, res) => {
 
     const token = jwt.sign(data, jwtSecretKey);
 
-    // let ENDPOINT = "https://learn-global.onrender.com"
-    let ENDPOINT = "http://localhost:3006";
+    let ENDPOINT = "https://learn-global.onrender.com";
+    // let ENDPOINT = "http://localhost:3006";
 
     await sendForgotPasswordEmail(
       student.firstName,
@@ -1951,7 +2408,9 @@ const forgotPassword = async (req, res) => {
     res.json({
       status: "0",
       message: "Server Error Occured",
-      details: { error },
+      details: {
+        error,
+      },
     });
   }
 };
@@ -1961,10 +2420,7 @@ const setNewPassword = async (req, res) => {
     const { newPassword } = req.body;
     const { userId, email } = req.userData;
 
-    console.log({
-      newPassword,
-      data: req.userData,
-    });
+    console.log({ newPassword, data: req.userData });
 
     if (newPassword?.length < 6) {
       res.json({
@@ -1975,15 +2431,10 @@ const setNewPassword = async (req, res) => {
       return;
     }
 
-    let student = await StudentModel.findOne({
-      _id: userId,
-    });
+    let student = await StudentModel.findOne({ _id: userId });
 
     if (!student) {
-      res.json({
-        status: "0",
-        message: "Student Not Found",
-      });
+      res.json({ status: "0", message: "Student Not Found" });
       return;
     }
 
@@ -2029,7 +2480,9 @@ const setNewPassword = async (req, res) => {
     res.json({
       status: "0",
       message: "Server Error Occured",
-      details: { error },
+      details: {
+        error,
+      },
     });
   }
 };
@@ -2042,10 +2495,7 @@ const approveProfile = async (req, res) => {
   }
   let student = await StudentModel.findById(userId);
   if (!student) {
-    res.json({
-      status: "0",
-      message: "Student Not Found",
-    });
+    res.json({ status: "0", message: "Student Not Found" });
     return;
   }
 
@@ -2064,10 +2514,7 @@ const approveProfile = async (req, res) => {
 
   await appendNotification(StudentModel, [], msg, url, "", userId);
 
-  res.json({
-    status: "1",
-    message,
-  });
+  res.json({ status: "1", message });
 };
 
 const setRemark = async (req, res) => {
@@ -2084,9 +2531,23 @@ const setRemark = async (req, res) => {
     userData.remarks.push({
       text: text,
       created: Date.now(),
-      user_details: senderData,
+      user_details: {
+        email: senderData.email,
+      },
     });
     await userData.save();
+
+    let msg = `You received a remark from (${senderData.email})`;
+    let url = `/d/student/remarks`;
+    await appendNotification(StudentModel, [], msg, url, "", userData._id);
+
+    let historyResponse = await appendHistory(
+      StudentModel,
+      userData._id,
+      "STUDENT",
+      msg
+    );
+    console.log({ historyResponse });
 
     res.json({
       status: "1",
@@ -2119,10 +2580,7 @@ const getRemarks = async (req, res) => {
   }
   let student = await StudentModel.findOne({ _id: userId });
   if (!student) {
-    res.json({
-      status: "0",
-      message: "Student Not Found",
-    });
+    res.json({ status: "0", message: "Student Not Found" });
   } else {
     res.json({
       status: "1",
