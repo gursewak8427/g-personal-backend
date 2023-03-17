@@ -24,6 +24,27 @@ const getCountry = async (req, res) => {
     },
   });
 };
+
+
+// const updateCountry = async (req, res) => {
+//   let query = []
+//   if (req.files) {
+//     if (req.files.countryLogo) {
+//       query.push({ countryLogo: req.files.countryLogo.filename })
+//     }
+//   }
+
+//   const countries = await CountryModel.findByIdAndUpdate(req.body.countryId, query)
+
+//   res.json({
+//     status: "1",
+//     message: "Country List Found",
+//     details: {
+//       countries,
+//     },
+//   });
+// };
+
 const getState = async (req, res) => {
   const { countryId } = req.params;
   const state = await StateModel.find({ countryId });

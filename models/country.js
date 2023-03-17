@@ -13,6 +13,9 @@ const countrySchema = new Schema({
     countrySortName: {
         type: String,
     },
+    countryLogo: {
+        type: String,
+    },
 });
 
 // Compile model from schema

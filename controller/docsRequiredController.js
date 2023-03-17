@@ -18,4 +18,54 @@ const getDocsRequired = async (req, res) => {
         }
     })
 }
-module.exports = { getDocsRequired }
+
+const addRequiredDocuments = async (req, res) => {
+    const { userId } = req.userData
+    const { countryName, documents } = req.body;
+
+    var country = await DocsRequiredModel.findOne({ countryName: countryName.toLowerCase() })
+    if (country) {
+        res.json({
+            status: "0",
+            message: "Required Documents already added in this Country"
+        })
+        return;
+    }
+
+    var newCountry = new DocsRequiredModel({
+        countryName: countryName.toLowerCase(),
+        docsRequired: documents
+    })
+
+    await newCountry.save()
+
+    res.json({
+        status: "1",
+        message: "Document Added Successfully",
+    });
+}
+
+const updateRequiredDocuments = async (req, res) => {
+    const { userId } = req.userData
+    const { countryName, documents } = req.body;
+
+    var country = await DocsRequiredModel.findOne({ countryName: countryName.toLowerCase() })
+    if (!country) {
+        res.json({
+            status: "0",
+            message: "Country Not Found"
+        })
+        return;
+    }
+
+    country.docsRequired = documents
+
+    await country.save()
+
+    res.json({
+        status: "1",
+        message: "Documents Updated Successfully",
+    });
+}
+
+module.exports = { getDocsRequired, addRequiredDocuments, updateRequiredDocuments }

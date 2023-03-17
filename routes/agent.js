@@ -26,6 +26,7 @@ const {
     agentUpdateProfile,
     agentGetStudents,
     getNotifications,
+    getAgentEnrolledList,
 } = require("../controller/agent.controller");
 
 router.post("/login", agentLogin);
@@ -36,5 +37,8 @@ router.post("/update", checkAuth, upload.fields([{ name: "business_certificate_f
 router.post("/addstudent", checkAuth, agentAddStudent);
 router.post("/getstudents", checkAuth, agentGetStudents);
 router.post("/getnotifications", checkAuth, getNotifications);
+
+// 14 March, 2023 APIs
+router.get("/getAgentEnrolledList", checkAuth, getAgentEnrolledList);
 
 module.exports = router;

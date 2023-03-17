@@ -1,7 +1,7 @@
 const router = require("express").Router();
 const multer = require("multer");
 const { getAssessmentForms } = require("../controller/admin.controller");
-const { studentLogin,getHistory, studentRegister, studentConfirmEmail, resendEmail, getEmailVerification, studentSearch, enrollProgram, studentGoogleLogin, getEnrollPrograms, uploadDocument, getDocuments, studentUpdate, studentProfile, fillAssessmentForm, fillsearchqueries, forgotPassword, setNewPassword, submitAllDocs, testNotification, verifyToken, approveProfile, getNotifications, setRemark, getRemarks } = require("../controller/student.controller");
+const { createOrder, studentLogin, getHistory, studentRegister, studentConfirmEmail, resendEmail, getEmailVerification, studentSearch, enrollProgram, studentGoogleLogin, getEnrollPrograms, uploadDocument, getDocuments, studentUpdate, studentProfile, fillAssessmentForm, fillsearchqueries, forgotPassword, setNewPassword, submitAllDocs, testNotification, verifyToken, approveProfile, getNotifications, setRemark, getRemarks, handlePayment } = require("../controller/student.controller");
 const checkAuth = require("../helper/checkAuth");
 
 // const multer = require("multer");
@@ -41,6 +41,7 @@ router.post("/submitAllDocs", checkAuth, submitAllDocs)
 router.post("/approveProfile", checkAuth, approveProfile)
 router.post("/getNotifications", checkAuth, getNotifications)
 router.post("/getHistory", checkAuth, getHistory)
+router.post("/handlePayment", checkAuth, handlePayment)
 
 router.post("/setRemark", checkAuth, setRemark)
 router.post("/getRemarks", checkAuth, getRemarks)
@@ -48,5 +49,6 @@ router.post("/getRemarks", checkAuth, getRemarks)
 
 router.post("/testNotification", testNotification)
 
+router.post("/createOrder", checkAuth, createOrder)
 
 module.exports = router;

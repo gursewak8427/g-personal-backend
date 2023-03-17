@@ -9,6 +9,7 @@ const saltRounds = 10
 var generatorPassword = require('generate-password');
 const { default: axios } = require("axios");
 const { sendConfirmationEmail } = require("../helper/sendConfirmationEmail");
+const { ObjectId } = require("bson");
 
 
 const appendNotification = async (
@@ -153,6 +154,7 @@ const agentLogin = async (req, res) => {
                     time: Date(),
                     userId: agent._id,
                     email: agent.email,
+                    role: "AGENT"
                 }
 
                 const token = jwt.sign(data, jwtSecretKey);
@@ -390,11 +392,13 @@ const agentRegister = async (req, res) => {
 
 const agentAddStudent = async (req, res) => {
     try {
-        const { email, password, firstName, lastName, phone } = req.body;
         const { userId } = req.userData
+        const { email, phone } = req.body;
+
         if (userId) {
             var agentDetails = await AgentModel.findById(userId);
         }
+
         if (!email || email == "") {
             res.json({
                 status: "0",
@@ -423,114 +427,79 @@ const agentAddStudent = async (req, res) => {
                 message: error.join(" and ") + " is already used",
             });
         } else {
-            if (!password) {
-                res.json({
-                    status: "0",
-                    message: "Password is required",
-                });
-                return;
-            }
 
+            
+            let student = new StudentModel({
+                ...req.body,
+                agent_id: ObjectId(agentDetails._id)
+            })
 
-            if (password?.length < 6) {
-                res.json({
-                    status: "0",
-                    name: "ValidationError",
-                    message: "Password must have minimum 6 characters",
-                });
-                return;
-            }
-            bcrypt.hash(password, saltRounds, async function (err, hash) {
-                // Store hash in your password DB.
-                if (err) {
+            try {
+                let response = await student.save();
+                console.log(response);
+            } catch (error) {
+                if (error.name === "ValidationError") {
+                    let errorsData = {};
+                    Object.keys(error.errors).forEach((key) => {
+                        errorsData[key] = error.errors[key].message;
+                    });
+
                     res.json({
                         status: "0",
-                        message: "Server error occured",
-                        details: {
-                            error: err
-                        }
-                    })
-                }
-
-                let student = new StudentModel({
-                    email,
-                    password: hash,
-                    firstName,
-                    lastName,
-                    phone,
-                    device_token: req.body?.deviceToken || "",
-                    agent_id: userId,
-                })
-                try {
-                    let response = await student.save();
-                    console.log(response);
-                } catch (error) {
-                    if (error.name === "ValidationError") {
-                        let errorsData = {};
-                        Object.keys(error.errors).forEach((key) => {
-                            errorsData[key] = error.errors[key].message;
-                        });
-
-                        res.json({
-                            status: "0",
-                            name: "ValidationError",
-                            message: "Validation Error",
-                            details: { error: errorsData },
-                        });
-                        return;
-                    }
-
-                    console.log(error);
+                        name: "ValidationError",
+                        message: "Validation Error",
+                        details: { error: errorsData },
+                    });
                     return;
                 }
 
-                // generate jwt token
-                let jwtSecretKey = process.env.JWT_SECRET_KEY;
-                let data = {
-                    time: Date(),
-                    userId: student._id.toString(),
-                    email: student.email,
-                };
+                console.log(error);
+                return;
+            }
 
-                const token = jwt.sign(data, jwtSecretKey);
-                let ENDPOINT = "https://learn-global.onrender.com";
-                // let ENDPOINT = "http://localhost:3000";
+            let data = {
+                time: Date(),
+                userId: student._id,
+                email: student.email,
+                role: "STUDENT"
+            }
 
-                sendConfirmationEmail(firstName, email, token, ENDPOINT + "/d/student");
+            const token = jwt.sign(data, process.env.JWT_SECRET_KEY);
+            let ENDPOINT = "https://learn-global.onrender.com";
+            // let ENDPOINT = "http://localhost:3000";
 
-                let msg = `Student Register (${student.email}) by Agent - ${agentDetails.email}`;
-                let url = `/d/admin/studentprofile?id=${student._id}`;
-                await appendNotification(AdminModel, ["ADMIN"], msg, url);
+            sendConfirmationEmail(student.firstName, student.email, token, ENDPOINT + "/d/student");
 
-                await appendHistory(
-                    StudentModel,
-                    student._id,
-                    "STUDENT",
-                    "Registration Successful"
-                );
-                await appendHistory(
-                    AgentModel,
-                    userId,
-                    "AGENT",
-                    `Student Registered Successfully - ${student.email}`
-                );
+            let msg = `Student Register (${student.email}) by Agent - ${agentDetails.email}`;
+            let url = `/d/admin/studentprofile?id=${student._id}`;
+            await appendNotification(AdminModel, ["ADMIN"], msg, url);
+
+            await appendHistory(
+                StudentModel,
+                student._id,
+                "STUDENT",
+                "Registration Successful"
+            );
+            await appendHistory(
+                AgentModel,
+                userId,
+                "AGENT",
+                `Student Registered Successfully - ${student.email}`
+            );
 
 
-                res.json({
-                    status: "1",
-                    message: "Student Register Successfully",
-                    details: {
-                        student: {
-                            email: student.email,
-                            id: student._id
-                        }
+            res.json({
+                status: "1",
+                message: "Student Register Successfully",
+                details: {
+                    student: {
+                        email: student.email,
+                        id: student._id
                     }
-                })
-            });
+                }
+            })
 
         }
-
-
     } catch (error) {
         console.log(error)
         res.json({
@@ -795,9 +764,6 @@ const getNotifications = async (req, res) => {
     })
 }
 
-
-
-
 // setWebPushToken
 const setWebPushToken = async (userId, token) => {
     console.log({ userId, token })
@@ -809,7 +775,76 @@ const setWebPushToken = async (userId, token) => {
     return true;
 }
 
+const getAgentEnrolledList = async (req, res) => {
+    let agentId = req.userData.userId
+    const protocol = req.protocol;
+    const host = req.hostname;
+    const url = req.originalUrl;
+    const port = process.env.PORT || 3006;
 
+    if (host === "localhost") {
+        var fullUrl = `${protocol}://${host}:${port}`;
+    } else {
+        var fullUrl = `${protocol}://${host}`;
+    }
+
+    // get enrolledList details
+    let enrolledList = await EnrollModel.aggregate([
+        {
+            $match: {
+                agentId: ObjectId(agentId),
+            },
+        },
+        {
+            $lookup: {
+                from: "schools",
+                localField: "school_id",
+                foreignField: "_id",
+                as: "school_details",
+            },
+        },
+        {
+            $unwind: {
+                path: "$school_details",
+            },
+        },
+        {
+            $unwind: {
+                path: "$school_details.school_programs",
+            },
+        },
+        {
+            $match: {
+                $expr: {
+                    $eq: ["$school_details.school_programs.program_id", "$program_id"],
+                },
+            },
+        },
+        {
+            $lookup: {
+                from: "schoolnames",
+                localField: "school_details.school_name",
+                foreignField: "schoolName",
+                as: "school_details.school_meta_details",
+            },
+        },
+        {
+            $unwind: {
+                path: "$school_details.school_meta_details",
+            },
+        },
+    ]);
+
+    res.json({
+        status: "1",
+        message: "Enrolled Programs details found for Agent",
+        details: {
+            enrolled_list: enrolledList,
+            baseUrl: fullUrl + "/uploads/agent/",
+        },
+    });
+
+}
 
 module.exports = {
     agentRegister,
@@ -819,5 +854,6 @@ module.exports = {
     agentGetStudents,
     agentGetProfile,
     agentVerifyToken,
-    agentUpdateProfile
+    agentUpdateProfile,
+    getAgentEnrolledList
 }

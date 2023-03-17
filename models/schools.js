@@ -100,8 +100,7 @@ const schoolSchema = new Schema({
                 // required: [true, "Program Description is required"],
             },
             duration: {
-                type: Number,
-                required: [true, "Duration must be of integer type as number of semesters and requried"],
+                type: String,
             },
             grade_score: {
                 type: Number,

@@ -3,6 +3,7 @@ const SchoolModel = require("../models/schools");
 const EnrollModel = require("../models/enrolls");
 const CountryModel = require("../models/country");
 const DocsRequiredModel = require("../models/docsRequired");
+const HistoryModel = require("../models/history");
 
 const AssessmentForm = require("../models/assessmentForm");
 const QueriesForm = require("../models/queriesform");
@@ -20,11 +21,17 @@ const {
   sendForgotPasswordEmail,
 } = require("../helper/sendForgotPasswordEmail");
 const { default: axios } = require("axios");
+const { appendFileHistory } = require("./historyController");
 const clientID = "101406365885572651064";
 const client = new OAuth2Client(
   "274923150880-nekcgsfga504ohr2k2ccs6qpm3hdqoc0.apps.googleusercontent.com"
 );
 // clientSecret = "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"
+const Razorpay = require('razorpay')
+const razorpay = new Razorpay({
+  key_id: 'rzp_test_jMGvOqaZ2bLIC0',
+  key_secret: 'yMu78w2bLFnarGG1rcDSZPvn'
+})
 
 const appendNotification = async (
   model,
@@ -38,10 +45,10 @@ const appendNotification = async (
   await model.updateMany(
     model == AdminModel
       ? {
-          role: {
-            $in: users,
-          },
-        }
+        role: {
+          $in: users,
+        },
+      }
       : {},
     {
       $push: {
@@ -303,6 +310,13 @@ const studentLogin = async (req, res) => {
     if (!student) {
       res.json({ status: 0, message: "Student not exist" });
     } else {
+      if (student.agent_id != "") {
+        res.json({
+          status: "0",
+          message: "You are registered via Agent",
+        });
+        return;
+      }
       console.log({ password: student.password, password2: password });
 
       if (student.loginProvider == "google") {
@@ -614,6 +628,16 @@ const getEmailVerification = async (req, res) => {
 };
 
 const studentSearch = async (req, res) => {
+  const protocol = req.protocol;
+  const host = req.hostname;
+  const url = req.originalUrl;
+  const port = process.env.PORT || 3006;
+  if (host === "localhost") {
+    var fullUrl = `${protocol}://${host}:${port}`;
+  } else {
+    var fullUrl = `${protocol}://${host}`;
+  }
+
   var perPage = 10;
   var currentPage = parseInt(req.query.page);
   if (!currentPage) currentPage = 1;
@@ -629,31 +653,31 @@ const studentSearch = async (req, res) => {
   } = req.body;
   var highest_education_new = highest_education;
   if (highest_education == "secondary") {
-    highest_education_new = "Graduate";
+    highest_education_new = "Undergraduate";
   }
   if (highest_education == "certificate") {
-    highest_education_new = "Graduate";
+    highest_education_new = "Undergraduate";
   }
   if (highest_education == "diploma") {
-    highest_education_new = "Graduate";
+    highest_education_new = "Undergraduate";
   }
   if (highest_education == "advance_diploma") {
-    highest_education_new = "Graduate";
+    highest_education_new = "Undergraduate";
   }
   if (highest_education == "3_year_bachlor") {
-    highest_education_new = "Undergraduate";
+    highest_education_new = "Graduate";
   }
   if (highest_education == "4_year_bachlor") {
-    highest_education_new = "Undergraduate";
+    highest_education_new = "Graduate";
   }
   if (highest_education == "postgraduate_diploma") {
-    highest_education_new = "Undergraduate";
+    highest_education_new = "Graduate";
   }
   if (highest_education == "master") {
-    highest_education_new = "Undergraduate";
+    highest_education_new = "Graduate";
   }
   if (highest_education == "doctrate") {
-    highest_education_new = "Undergraduate";
+    highest_education_new = "Graduate";
   }
 
   var examdata = {};
@@ -743,10 +767,16 @@ const studentSearch = async (req, res) => {
 
   // var newtotalData = await SchoolNamesModel
 
-  if (country_to_go || country_to_go != "") {
-    var countryDtl = await CountryModel.findOne({ countryId: country_to_go });
+  var countryDtl = await CountryModel.findOne({ countryId: country_to_go });
+  if (countryDtl != null) {
     var countryName = countryDtl.countryName;
   }
+
+  console.log({
+    $match: {
+      country: countryName ? countryName : "",
+    }
+  })
 
   var totalData = await SchoolModel.aggregate([
     {
@@ -756,41 +786,41 @@ const studentSearch = async (req, res) => {
     },
     {
       $match: {
-        country: countryName ? countryName : "",
         $and: [
+          countryName ? { country: countryName } : {},
           new_stream && new_stream.length != 0
             ? {
-                $expr: {
-                  $gt: [
-                    {
-                      $size: {
-                        $setIntersection: [
-                          "$school_programs.new_stream",
-                          new_stream,
-                        ],
-                      },
+              $expr: {
+                $gt: [
+                  {
+                    $size: {
+                      $setIntersection: [
+                        "$school_programs.new_stream",
+                        new_stream,
+                      ],
                     },
-                    0,
-                  ],
-                },
-              }
+                  },
+                  0,
+                ],
+              },
+            }
             : {},
           highest_education_new && highest_education_new != ""
             ? {
-                $expr: {
-                  $gt: [
-                    {
-                      $size: {
-                        $setIntersection: [
-                          "$school_programs.program_level",
-                          [highest_education_new],
-                        ],
-                      },
+              $expr: {
+                $gt: [
+                  {
+                    $size: {
+                      $setIntersection: [
+                        "$school_programs.program_level",
+                        [highest_education_new],
+                      ],
                     },
-                    0,
-                  ],
-                },
-              }
+                  },
+                  0,
+                ],
+              },
+            }
             : {},
           {
             $and: [
@@ -799,81 +829,81 @@ const studentSearch = async (req, res) => {
               },
               mymin < 6 && mymodule < 4
                 ? {
-                    $and: [
-                      {
-                        "school_programs.acceptable_band": {
-                          $lte: mymin,
-                        },
+                  $and: [
+                    {
+                      "school_programs.acceptable_band": {
+                        $lte: mymin,
                       },
-                      {
-                        "school_programs.module": {
-                          $gte: mymodule,
-                        },
+                    },
+                    {
+                      "school_programs.module": {
+                        $gte: mymodule,
                       },
-                    ],
-                  }
+                    },
+                  ],
+                }
                 : {},
             ],
           },
           school_type
             ? {
-                type: {
-                  $regex: school_type,
-                  $options: "i",
-                },
-              }
+              type: {
+                $regex: school_type,
+                $options: "i",
+              },
+            }
             : {},
           fees
             ? {
-                $or: [
-                  {
+              $or: [
+                {
+                  $and: [
+                    {
+                      "school_programs.min_tution_fee_per_semester": {
+                        $lte: parseFloat(fees.min || 0),
+                      },
+                    },
+                    {
+                      "school_programs.max_tution_fee": {
+                        $gte: parseFloat(fees.min || 0),
+                      },
+                    },
+                  ],
+                },
+                fees.max
+                  ? {
                     $and: [
                       {
                         "school_programs.min_tution_fee_per_semester": {
-                          $lte: parseFloat(fees.min || 0),
+                          $lte: parseFloat(fees.max || 100000000),
                         },
                       },
                       {
                         "school_programs.max_tution_fee": {
-                          $gte: parseFloat(fees.min || 0),
+                          $gte: parseFloat(fees.max || 100000000),
                         },
                       },
                     ],
-                  },
-                  fees.max
-                    ? {
-                        $and: [
-                          {
-                            "school_programs.min_tution_fee_per_semester": {
-                              $lte: parseFloat(fees.max || 100000000),
-                            },
-                          },
-                          {
-                            "school_programs.max_tution_fee": {
-                              $gte: parseFloat(fees.max || 100000000),
-                            },
-                          },
-                        ],
-                      }
-                    : {},
-                ],
-              }
+                  }
+                  : {},
+              ],
+            }
             : {},
           grade_score || parseFloat(grade_score) == 0
             ? {
-                $or: [
-                  {
-                    "school_programs.grade_score": {
-                      $lt: parseFloat(grade_score),
-                    },
+              $or: [
+                {
+                  "school_programs.grade_score": {
+                    $lt: parseFloat(grade_score),
                   },
-                  {
-                    "school_programs.grade_score": {
-                      $eq: parseFloat(grade_score),
-                    },
+                },
+                {
+                  "school_programs.grade_score": {
+                    $eq: parseFloat(grade_score),
                   },
-                ],
-              }
+                },
+              ],
+            }
             : {},
         ],
       },
@@ -969,6 +999,17 @@ const studentSearch = async (req, res) => {
       },
     },
     {
+      $lookup: {
+        from: "schoolnames",
+        localField: "school_name",
+        foreignField: "schoolName",
+        as: "school_meta_details",
+      },
+    },
+    {
+      $unwind: "$school_meta_details"
+    },
+    {
       $skip: (currentPage - 1) * perPage,
     },
     {
@@ -988,37 +1029,37 @@ const studentSearch = async (req, res) => {
         $and: [
           new_stream && new_stream.length != 0
             ? {
-                $expr: {
-                  $gt: [
-                    {
-                      $size: {
-                        $setIntersection: [
-                          "$school_programs.new_stream",
-                          new_stream,
-                        ],
-                      },
+              $expr: {
+                $gt: [
+                  {
+                    $size: {
+                      $setIntersection: [
+                        "$school_programs.new_stream",
+                        new_stream,
+                      ],
                     },
-                    0,
-                  ],
-                },
-              }
+                  },
+                  0,
+                ],
+              },
+            }
             : {},
           highest_education_new && highest_education_new != ""
             ? {
-                $expr: {
-                  $gt: [
-                    {
-                      $size: {
-                        $setIntersection: [
-                          "$school_programs.program_level",
-                          [highest_education_new],
-                        ],
-                      },
+              $expr: {
+                $gt: [
+                  {
+                    $size: {
+                      $setIntersection: [
+                        "$school_programs.program_level",
+                        [highest_education_new],
+                      ],
                     },
-                    0,
-                  ],
-                },
-              }
+                  },
+                  0,
+                ],
+              },
+            }
             : {},
           {
             $and: [
@@ -1027,81 +1068,81 @@ const studentSearch = async (req, res) => {
               },
               mymin < 6 && mymodule < 4
                 ? {
-                    $and: [
-                      {
-                        "school_programs.acceptable_band": {
-                          $lte: mymin,
-                        },
+                  $and: [
+                    {
+                      "school_programs.acceptable_band": {
+                        $lte: mymin,
                       },
-                      {
-                        "school_programs.module": {
-                          $gte: mymodule,
-                        },
+                    },
+                    {
+                      "school_programs.module": {
+                        $gte: mymodule,
                       },
-                    ],
-                  }
+                    },
+                  ],
+                }
                 : {},
             ],
           },
           school_type
             ? {
-                type: {
-                  $regex: school_type,
-                  $options: "i",
-                },
-              }
+              type: {
+                $regex: school_type,
+                $options: "i",
+              },
+            }
             : {},
           fees
             ? {
-                $or: [
-                  {
+              $or: [
+                {
+                  $and: [
+                    {
+                      "school_programs.min_tution_fee_per_semester": {
+                        $lte: parseFloat(fees.min || 0),
+                      },
+                    },
+                    {
+                      "school_programs.max_tution_fee": {
+                        $gte: parseFloat(fees.min || 0),
+                      },
+                    },
+                  ],
+                },
+                fees.max
+                  ? {
                     $and: [
                       {
                         "school_programs.min_tution_fee_per_semester": {
-                          $lte: parseFloat(fees.min || 0),
+                          $lte: parseFloat(fees.max || 100000000),
                         },
                       },
                       {
                         "school_programs.max_tution_fee": {
-                          $gte: parseFloat(fees.min || 0),
+                          $gte: parseFloat(fees.max || 100000000),
                         },
                       },
                     ],
-                  },
-                  fees.max
-                    ? {
-                        $and: [
-                          {
-                            "school_programs.min_tution_fee_per_semester": {
-                              $lte: parseFloat(fees.max || 100000000),
-                            },
-                          },
-                          {
-                            "school_programs.max_tution_fee": {
-                              $gte: parseFloat(fees.max || 100000000),
-                            },
-                          },
-                        ],
-                      }
-                    : {},
-                ],
-              }
+                  }
+                  : {},
+              ],
+            }
             : {},
           grade_score || parseFloat(grade_score) == 0
             ? {
-                $or: [
-                  {
-                    "school_programs.grade_score": {
-                      $lt: parseFloat(grade_score),
-                    },
+              $or: [
+                {
+                  "school_programs.grade_score": {
+                    $lt: parseFloat(grade_score),
                   },
-                  {
-                    "school_programs.grade_score": {
-                      $eq: parseFloat(grade_score),
-                    },
+                },
+                {
+                  "school_programs.grade_score": {
+                    $eq: parseFloat(grade_score),
                   },
-                ],
-              }
+                },
+              ],
+            }
             : {},
         ],
       },
@@ -1214,6 +1255,7 @@ const studentSearch = async (req, res) => {
       overall,
       mymin,
       mymodule,
+      baseUrl: fullUrl + "/uploads/agent/",
     },
   });
 };
@@ -1307,8 +1349,15 @@ const getHistory = async (req, res) => {
 };
 
 const enrollProgram = async (req, res) => {
-  const { school_id, program_id } = req.body;
-  var student_id = req.userData.userId;
+  const { program_id, school_id } = req.body;
+  if (req?.userData?.role == "AGENT") {
+    var agent_id = req.userData.userId
+    var student_id = req.body.student_id;
+  } else {
+    var student_id = req.userData.userId;
+  }
+
+  console.log({ student_id })
 
   // get student details
   let student = await StudentModel.findOne({ _id: student_id });
@@ -1451,11 +1500,17 @@ const enrollProgram = async (req, res) => {
     return;
   }
 
+  // count already uploaded enrolls
+  const totalEnrolls = await EnrollModel.countDocuments();
+
+
   let newEnroll = new EnrollModel({
     student_id: ObjectId(student_id),
     school_id: ObjectId(school_id),
     program_id: program_id,
     enroll_status: "PENDING",
+    fileId: "LG" + (10000 + (totalEnrolls + 1)),
+    agentId: ObjectId(agent_id) || null
   });
 
   try {
@@ -1529,6 +1584,12 @@ const enrollProgram = async (req, res) => {
     let userRole = "STUDENT";
     await appendHistory(StudentModel, student_id, userRole, text);
 
+    let content =
+      "Program " +
+      program[0].program_details.program_name +
+      " Enrolled Successfully";
+    let historyResponse = await appendFileHistory({ fileId: newEnroll._id, student_id, userRole: "STUDENT", content });
+
     res.json({
       status: "1",
       message: "Enrolled Successfully",
@@ -1555,7 +1616,12 @@ const getEnrollPrograms = async (req, res) => {
   const url = req.originalUrl;
   const port = process.env.PORT || 3006;
 
-  const fullUrl = `${protocol}://${host}:${port}`;
+  if (host === "localhost") {
+    var fullUrl = `${protocol}://${host}:${port}`;
+  } else {
+    var fullUrl = `${protocol}://${host}`;
+  }
+
   // get enrolledList details
   let enrolledList = await EnrollModel.aggregate([
     {
@@ -1658,7 +1724,7 @@ const getEnrollPrograms = async (req, res) => {
     message: "Enrolled Programs details found",
     details: {
       enrolled_list: enrolledList,
-      baseUrl: fullUrl + "/uploads/student/",
+      baseUrl: fullUrl + "/uploads/agent/",
       student: studentDetails,
       documents: finalDocs,
       isDocsRequired: required,
@@ -1669,7 +1735,12 @@ const getEnrollPrograms = async (req, res) => {
 
 const uploadDocument = async (req, res) => {
   try {
-    const { userId } = req.userData;
+    if (req.userData.role == "AGENT") {
+      var userId = req.body.studentId;
+    } else {
+      var { userId } = req.userData;
+    }
+
     console.log(req.body);
     console.log(req.file);
     console.log(req.userData);
@@ -1744,6 +1815,14 @@ const submitAllDocs = async (req, res) => {
 
   var student = await StudentModel.findOne({ _id: userId });
   student.status = "IN_PROCESS";
+
+  var enrolledList = await EnrollModel.updateMany({ student_id: userId }, {
+    $set: {
+      enroll_status: "UNDER_VERIFICATION",
+    }
+  });
+
+
   await student.save();
   let msg = "Documents uploaded by the user " + student.email;
   let url = `/d/admin/studentprofile?id=${userId}&tab=documents`;
@@ -1765,7 +1844,12 @@ const getDocuments = async (req, res) => {
     const url = req.originalUrl;
     const port = process.env.PORT || 3006;
 
-    const fullUrl = `${protocol}://${host}:${port}`;
+    if (host === "localhost") {
+      var fullUrl = `${protocol}://${host}:${port}`;
+    } else {
+      var fullUrl = `${protocol}://${host}`;
+    }
+
 
     // get enrolledList details
     let enrolledList = await EnrollModel.aggregate([
@@ -1937,13 +2021,8 @@ const studentUpdate = async (req, res) => {
         return;
       }
 
-      var studentdata = await StudentModel.updateOne(
-        {
-          _id: userId,
-        },
-        { $set: req.body }
-      );
 
+      let failed = false;
       if (req.body.documents) {
         let adminDataForHistory = await AdminModel.findOne({ _id: adminId });
         if (!adminDataForHistory) {
@@ -1954,6 +2033,7 @@ const studentUpdate = async (req, res) => {
 
         // notification
         if (req.body?.reason) {
+          failed = true;
           console.log(req.body.reason);
           var msg =
             "Your Document " +
@@ -1969,6 +2049,8 @@ const studentUpdate = async (req, res) => {
             req.body.reason +
             " by " +
             adminDataForHistory.email;
+
+
         } else {
           var msg =
             "Your Document " +
@@ -1992,7 +2074,18 @@ const studentUpdate = async (req, res) => {
         // await appendNotification(Pro, ["ADMIN", "SUBADMIN"], msg, url)
       }
 
+      if (failed) {
+        req.body.status = "DOC_REJECTED"
+      }
+      var studentdata = await StudentModel.updateOne(
+        {
+          _id: userId,
+        },
+        { $set: req.body }
+      );
+
       try {
+        // update with findAndUpdate see above
         // await studentdata.save();
       } catch (error) {
         if (error.name === "ValidationError") {
@@ -2043,19 +2136,27 @@ const studentProfile = async (req, res) => {
     const url = req.originalUrl;
     const port = process.env.PORT || 3006;
 
-    const fullUrl = `${protocol}://${host}:${port}`;
+    if (host === "localhost") {
+      var fullUrl = `${protocol}://${host}:${port}`;
+    } else {
+      var fullUrl = `${protocol}://${host}`;
+    }
+
 
     if (req.userData.role == "ADMIN") {
       var student_id = req.query.id;
+      var student = await StudentModel.findOne({ _id: student_id });
+
     } else {
-      var { student_id } = req.userData;
+      var student_id = req.userData.userId;
+      var student = await StudentModel.findOne({ _id: student_id });
     }
-    let student = await StudentModel.findOne({ _id: student_id });
+
     if (!student) {
       res.json({ status: "0", message: "Student Not Found" });
     } else {
       // get enrolledList details
-      let enrolledList = await EnrollModel.aggregate([
+      var enrolledList = await EnrollModel.aggregate([
         {
           $match: {
             student_id: ObjectId(student_id),
@@ -2075,13 +2176,28 @@ const studentProfile = async (req, res) => {
           },
         },
         {
-          $project: {
-            _id: 1,
-            "school_details.school_name": 1,
-            "school_details.country": 1,
+          $unwind: {
+            path: "$school_details.school_programs",
           },
         },
+        {
+          $match: {
+            $expr: {
+              $eq: ["$school_details.school_programs.program_id", "$program_id"],
+            },
+          },
+        },
+        {
+          $project: {
+            _id: 1,
+            'school_details.country': 1,
+            'school_details.school_name': 1,
+            'school_details.school_programs.program_name': 1,
+          }
+        }
       ]);
+
+      console.log({ enrolledList })
 
       let studentDetails = await StudentModel.findById(student_id);
 
@@ -2144,6 +2260,7 @@ const studentProfile = async (req, res) => {
         details: {
           baseUrl: fullUrl + "/uploads/student/",
           student: studentDetails,
+          enrolledList
         },
       });
     }
@@ -2374,7 +2491,12 @@ const forgotPassword = async (req, res) => {
     const url = req.originalUrl;
     const port = process.env.PORT || 3006;
 
-    const fullUrl = `${protocol}://${host}:${port}`;
+    if (host === "localhost") {
+      var fullUrl = `${protocol}://${host}:${port}`;
+    } else {
+      var fullUrl = `${protocol}://${host}`;
+    }
+
 
     // generate jwt token
     let jwtSecretKey = process.env.JWT_SECRET_KEY;
@@ -2578,19 +2700,156 @@ const getRemarks = async (req, res) => {
   } else {
     var { userId } = req.userData;
   }
-  let student = await StudentModel.findOne({ _id: userId });
-  if (!student) {
-    res.json({ status: "0", message: "Student Not Found" });
+  const { fileId } = req.body
+
+  let file = await HistoryModel.find({ fileId: fileId }).sort({ "createdAt": "-1" });
+  console.log({ fileId, file })
+  if (!file) {
+    res.json({ status: "0", message: "File not found" });
   } else {
+    // get user details
+
+    // get school-program details
+
     res.json({
       status: "1",
-      message: "Remark Fetched Successfully",
+      message: "History Fetched Successfully",
       details: {
-        remarks: student.remarks.reverse(),
+        history: file,
       },
     });
   }
 };
+
+
+
+const handlePayment = async (req, res) => {
+  try {
+    const { fileId, status, intake, razorpay_payment_id } = req.body;
+    let file = await EnrollModel.findOne({ _id: ObjectId(fileId) });
+    if (!file) {
+      res.json({
+        status: "0",
+        message: "File Not Found",
+        details: {
+          error: "File Not Found",
+        }
+      })
+      return;
+    }
+
+    file.enroll_status = status;
+    file.intake = intake;
+    file.fees_status = "PAID";
+    file.payment_id = razorpay_payment_id;
+    file.payment_date_time = Date.now();
+
+    const { userId } = req.userData
+    let userRole = "STUDENT"
+
+    await appendFileHistory({ fileId, userId, userRole, content: "Payment Done" });
+
+    await file.save();
+    res.json({
+      status: "1",
+      message: "Status Updated",
+      details: {
+        status: status,
+      }
+    })
+  }
+  catch (err) {
+    console.log(err)
+    res.json({
+      status: "0",
+      message: "Server Error",
+      details: {
+        error: err.message,
+      }
+    })
+  }
+}
+
+const createOrder = async (req, res) => {
+  try {
+    // get enrolledList details
+    console.log(req.body);
+    let { userId } = req.userData;
+    let userDetails = await StudentModel.findById(userId);
+    let enrolledList = await EnrollModel.aggregate([
+      {
+        $match: {
+          _id: ObjectId(req.body.enrollId),
+        },
+      },
+      {
+        $lookup: {
+          from: "schools",
+          localField: "school_id",
+          foreignField: "_id",
+          as: "school_details",
+        },
+      },
+      {
+        $unwind: {
+          path: "$school_details",
+        },
+      },
+      {
+        $unwind: {
+          path: "$school_details.school_programs",
+        },
+      },
+      {
+        $match: {
+          $expr: {
+            $eq: ["$school_details.school_programs.program_id", "$program_id"],
+          },
+        },
+      },
+    ]);
+    let program = enrolledList[0].school_details.school_programs;
+    let applicationFee = program.application_fee;
+    let currency = "INR";
+    console.log({ applicationFee, currency });
+
+    if (enrolledList.length == 0) {
+      res.json({
+        status: "0",
+        message: "Invalid Enrolled Id",
+      });
+      return;
+    }
+
+    // razorpay
+    let randomString = Math.floor(Math.random() * 90000) + 10000;
+
+    const options = {
+      amount: parseFloat(applicationFee) * 100,
+      currency: currency,
+      receipt: randomString, //any unique id
+    }
+
+    const response = await razorpay.orders.create(options)
+    console.log({ response })
+
+    res.json({
+      status: "1",
+      order_id: response.id,
+      currency: response.currency,
+      amount: response.amount,
+      userDetails
+    })
+  }
+  catch (err) {
+    res.json({
+      status: "0",
+      message: err.message,
+    });
+  }
+}
+
+
 
 module.exports = {
   fillAssessmentForm,
@@ -2618,4 +2877,6 @@ module.exports = {
   getHistory,
   setRemark,
   getRemarks,
+  handlePayment,
+  createOrder
 };

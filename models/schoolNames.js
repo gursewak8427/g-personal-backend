@@ -3,7 +3,6 @@ const { Schema, model } = require("mongoose");
 const schoolNamesSchema = new Schema({
     schoolName: {
         type: String,
-        unique: false,
     },
     schoolLogo: {
         type: String,

@@ -28,6 +28,7 @@ const {
     getSearchQueryForms,
     updateCountry,
     updateSchoolName,
+    deleteSchoolName,
     findIntakes,
     updateIntakes,
     getSingleSchool,
@@ -37,8 +38,19 @@ const {
     topcategorydata,
     getSingleProgramDetail,
     getSingleSchoolDetails,
-    getDashboardCounts
+    getDashboardCounts,
+    getEnrollPrograms,
+    updateEnrollStatus,
+    sendRemark,
+    getProfile,
+    updateProfile,
+    changePassword,
+    forgotPassword,
+    setNewPassword,
 } = require("../controller/admin.controller");
+
+const { addRequiredDocuments, updateRequiredDocuments } = require("../controller/docsRequiredController");
+
 const checkAuth = require("../helper/checkAuth");
 
 // const multer = require("multer");
@@ -46,12 +58,16 @@ const storage = multer.diskStorage({
     destination: "uploads/agent",
 
     filename: function (req, file, cb) {
+        // request.file.buffer.toString('latin1')
+
         let name = `${Date.now().toString()}-${file.originalname}`;
         cb(null, name);
     },
 });
 
-var upload = multer({ storage: storage });
+var upload = multer({ storage: storage },
+    { encoding: 'utf8' }
+);
 
 router.post("/verifyToken", checkAuth, verifyToken)
 router.post("/login", adminLogin)
@@ -72,6 +88,7 @@ router.post("/addcountry", upload.fields([{ name: "image" }]), addCountry)
 router.post("/updatecountrylogo", upload.fields([{ name: "image" }]), updateCountry)
 router.post("/addschoolname", upload.fields([{ name: "schoolLogo" }, { name: "countryLogo" }]), addSchoolname)
 router.post("/updateschoolname", upload.fields([{ name: "schoolLogo" }, { name: "countryLogo" }]), updateSchoolName)
+router.delete("/deleteschoolname/:id", deleteSchoolName)
 router.get("/countries", countriesList)
 router.get("/schoolnames", schoolNamesList)
 router.post("/updatepermissions", updatePermissions)
@@ -91,6 +108,22 @@ router.get("/topcategorydata", topcategorydata)
 router.post("/getSingleProgramDetail", getSingleProgramDetail)
 router.post("/getSingleSchoolDetails", getSingleSchoolDetails)
 
+// enrolls
+router.post("/getEnrollPrograms", getEnrollPrograms)
+router.patch("/updateEnrollStatus", checkAuth, updateEnrollStatus)
+router.post("/sendRemark", checkAuth, sendRemark)
+
 router.get("/getDashboardCounts", getDashboardCounts)
+
+// ************** 14 March, 2023 **********************************
+router.get("/profile", checkAuth, getProfile)
+router.patch("/updateProfile", checkAuth, updateProfile)
+router.patch("/changePassword", checkAuth, changePassword)
+router.post("/forgotPassword", forgotPassword)
+router.patch("/setNewPassword", checkAuth, setNewPassword)
+
+router.post("/addRequiredDocuments", checkAuth, addRequiredDocuments)
+router.patch("/updateRequiredDocuments", checkAuth, updateRequiredDocuments)
+// ****************************************************************f
 
 module.exports = router;

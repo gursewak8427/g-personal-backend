@@ -1,5 +1,5 @@
-const {ObjectId} = require("bson");
-const {Schema, model} = require("mongoose");
+const { ObjectId } = require("bson");
+const { Schema, model } = require("mongoose");
 
 const studentSchema = new Schema({
     email: {
@@ -34,8 +34,9 @@ const studentSchema = new Schema({
         // minlength: [10, "Phone number is invalid"],
     },
     agent_id: {
-        type: String,
-        default: ""
+        type: ObjectId,
+        ref: "agent",
+        default: null
     },
     emailVerified: {
         type: String,
@@ -52,6 +53,7 @@ const studentSchema = new Schema({
         enum: [
             "PENDING",
             "IN_PROCESS",
+            "DOC_REJECTED",
             "APPROVED",
             "REJECTED",
             "BLOCKED"
@@ -124,8 +126,22 @@ const studentSchema = new Schema({
                 required: [true, "User role are required"]
             }
         }
-    ]
-}, {timestamps: true});
+    ],
+    highestEducation: String,
+    gradeScore: String,
+    examType: String,
+    pteScore: String,
+    tofelScore: String,
+    readingScore: String,
+    listeningScore: String,
+    writingScore: String,
+    speakingScore: String,
+    // address fielsd
+    country: String,
+    city: String,
+    state: String,
+    pincode: String,
+}, { timestamps: true });
 
 // Compile model from schema
 module.exports = StudentModel = model("student", studentSchema);

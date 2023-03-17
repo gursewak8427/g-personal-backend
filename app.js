@@ -235,10 +235,10 @@ io.on("connection", (socket) => {
         try {
             //convert csvfile to jsonArray
             const fileName = data.file.filename
+            // csv({}, { encoding: "utf-8" })
             csv()
                 .fromFile(data.file.path)
                 .then(async (jsonObj) => {
-
                     let addedSchools = []
                     let finalObj = []
                     var erroredIndex = []
@@ -301,7 +301,7 @@ io.on("connection", (socket) => {
                                 "program_id": uuidv4(),
                                 "program_name": jsonObj[index]["program_name"],
                                 "description": jsonObj[index]["description"],
-                                "duration": parseFloat(jsonObj[index]["duration"]) || 0,
+                                "duration": jsonObj[index]["duration"] || "",
                                 "grade_score": parseFloat(jsonObj[index]["grade_score"]) || 0,
                                 "overall_band": parseFloat(jsonObj[index]["overall_band"]) || 0,
                                 "pte_score": parseFloat(jsonObj[index]["pte_score"]) || 0,
@@ -424,7 +424,7 @@ io.on("connection", (socket) => {
                                         "program_id": uuidv4(),
                                         "program_name": jsonObj[index]["program_name"],
                                         "description": jsonObj[index]["description"],
-                                        "duration": parseFloat(jsonObj[index]["duration"]) || 0,
+                                        "duration": jsonObj[index]["duration"] || "",
                                         "grade_score": parseFloat(jsonObj[index]["grade_score"]) || 0,
                                         "overall_band": parseFloat(jsonObj[index]["overall_band"]) || 0,
                                         "pte_score": parseFloat(jsonObj[index]["pte_score"]) || 0,
@@ -467,6 +467,8 @@ io.on("connection", (socket) => {
                     // let newSchools = await SchoolModel.insertMany(finalObj)
                     var updated = false;
                     var myCustomIndex = 0;
+
+
                     for (let index = 0; index < finalObj.length; index++) {
                         const singleSchool = finalObj[index];
                         // console.log("length", singleSchool.school_programs.length)

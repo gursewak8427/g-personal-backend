@@ -18,12 +18,33 @@ const enrollSchema = new Schema({
     enum: [
       "PENDING", // until documents are not completed
       "UNDER_VERIFICATION", // after documents are completed then admin/sub-admin will verify file finally
-      "PAYMENT_PENDING", // after verification done from admin, then student will able to pay fees
-      "IN_PRECESSING", // After payment file will gone to under_processing
+      "FEES_PENDING", // after verification done from admin, then student will able to pay fees
+      "IN_PROCESSING", // After payment file will gone to under_processing
       "CLOSED", // after all process, file will be closed
     ],
   },
-});
+  fileId: {
+    type: String,
+    required: [true, "File ID is required"],
+  },
+  intake: {
+    year: Number,
+    month: Number
+  },
+  fees_status: {
+    type: "String",
+    enum: ["PENDING", "PAID", "FAILED"],
+    default: "PENDING",
+  },
+  payment_id: String,
+  payment_date_time: String,
+  agentId: {
+    type: ObjectId,
+    ref: "agents",
+    default: null,
+  }
+},
+  { timestamps: true });
 
 // Compile model from schema
 module.exports = EnrollModel = model("enroll", enrollSchema);
