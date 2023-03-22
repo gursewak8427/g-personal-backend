@@ -4,7 +4,7 @@ const EnrollModel = require("../models/enrolls");
 const CountryModel = require("../models/country");
 const DocsRequiredModel = require("../models/docsRequired");
 const HistoryModel = require("../models/history");
-
+const SchoolNamesModel = require("../models/schoolNames")
 const AssessmentForm = require("../models/assessmentForm");
 const QueriesForm = require("../models/queriesform");
 const fs = require("fs");
@@ -310,7 +310,7 @@ const studentLogin = async (req, res) => {
     if (!student) {
       res.json({ status: 0, message: "Student not exist" });
     } else {
-      if (student.agent_id != "") {
+      if (student.agent_id != null) {
         res.json({
           status: "0",
           message: "You are registered via Agent",
@@ -965,6 +965,7 @@ const studentSearch = async (req, res) => {
             program_name: "$school_programs.program_name",
             description: "$school_programs.description",
             duration: "$school_programs.duration",
+            duration_sem_per_year: "$school_programs.duration_sem_per_year",
             grade_score: "$school_programs.grade_score",
             overall_band: "$school_programs.overall_band",
             pte_score: "$school_programs.pte_score",
@@ -1000,15 +1001,111 @@ const studentSearch = async (req, res) => {
     },
     {
       $lookup: {
+        from: "countries",
+        localField: "country",
+        foreignField: "countryName",
+        as: "countryDetails"
+      }
+    },
+    {
+      $unwind: {
+        path: "$countryDetails",
+      }
+    },
+    {
+      $lookup: {
+        from: "states",
+        let: {
+          stateName: "$state",
+          countryId: "$countryDetails.countryId",
+        },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$stateName', '$$stateName'] },
+                  { $eq: ['$countryId', '$$countryId'] },
+                ]
+              }
+            }
+          }
+        ],
+        as: "stateDetails"
+      }
+    },
+    {
+      $unwind: "$stateDetails",
+    },
+    {
+      $lookup: {
+        from: "cities",
+        let: {
+          cityName: "$city",
+          stateId: "$stateDetails.stateId",
+        },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$cityName', '$$cityName'] },
+                  { $eq: ['$stateId', '$$stateId'] },
+                ]
+              }
+            }
+          }
+        ],
+        as: "cityDetails"
+      }
+    },
+    {
+      $unwind: "$cityDetails",
+    },
+    {
+      $lookup: {
         from: "schoolnames",
-        localField: "school_name",
-        foreignField: "schoolName",
+        let: {
+          localSchoolNameField: '$school_name',
+          localCountryField: '$countryDetails.countryId',
+          localStateField: '$stateDetails.stateId',
+          localCityField: '$cityDetails.cityId',
+        },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$schoolName', '$$localSchoolNameField'] },
+                  { $eq: ['$country', '$$localCountryField'] },
+                  { $eq: ['$state', '$$localStateField'] },
+                  { $eq: ['$city', '$$localCityField'] },
+                ]
+              }
+            }
+          }
+        ],
+        // localField: "school_details.school_name",
+        // foreignField: "schoolName",
         as: "school_meta_details",
       },
     },
     {
-      $unwind: "$school_meta_details"
+      $unwind: {
+        path: "$school_meta_details",
+      },
     },
+    // {
+    //   $lookup: {
+    //     from: "schoolnames",
+    //     localField: "school_name",
+    //     foreignField: "schoolName",
+    //     as: "school_meta_details",
+    //   },
+    // },
+    // {
+    //   $unwind: "$school_meta_details"
+    // },
     {
       $skip: (currentPage - 1) * perPage,
     },
@@ -1025,8 +1122,8 @@ const studentSearch = async (req, res) => {
     },
     {
       $match: {
-        country: countryName ? countryName : "",
         $and: [
+          countryName ? { country: countryName } : {},
           new_stream && new_stream.length != 0
             ? {
               $expr: {
@@ -1204,6 +1301,7 @@ const studentSearch = async (req, res) => {
             program_name: "$school_programs.program_name",
             description: "$school_programs.description",
             duration: "$school_programs.duration",
+            duration_sem_per_year: "$school_programs.duration_sem_per_year",
             grade_score: "$school_programs.grade_score",
             overall_band: "$school_programs.overall_band",
             pte_score: "$school_programs.pte_score",
@@ -1349,6 +1447,7 @@ const getHistory = async (req, res) => {
 };
 
 const enrollProgram = async (req, res) => {
+  console.log({ body: req.body })
   const { program_id, school_id } = req.body;
   if (req?.userData?.role == "AGENT") {
     var agent_id = req.userData.userId
@@ -1434,6 +1533,7 @@ const enrollProgram = async (req, res) => {
             program_name: "$school_programs.program_name",
             description: "$school_programs.description",
             duration: "$school_programs.duration",
+            duration_sem_per_year: "$school_programs.duration_sem_per_year",
             grade_score: "$school_programs.grade_score",
             overall_band: "$school_programs.overall_band",
             pte_score: "$school_programs.pte_score",
@@ -1656,9 +1756,92 @@ const getEnrollPrograms = async (req, res) => {
     },
     {
       $lookup: {
+        from: "countries",
+        localField: "school_details.country",
+        foreignField: "countryName",
+        as: "school_details.countryDetails"
+      }
+    },
+    {
+      $unwind: {
+        path: "$school_details.countryDetails",
+      }
+    },
+    {
+      $lookup: {
+        from: "states",
+        let: {
+          stateName: "$school_details.state",
+          countryId: "$school_details.countryDetails.countryId",
+        },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$stateName', '$$stateName'] },
+                  { $eq: ['$countryId', '$$countryId'] },
+                ]
+              }
+            }
+          }
+        ],
+        as: "school_details.stateDetails"
+      }
+    },
+    {
+      $unwind: "$school_details.stateDetails",
+    },
+    {
+      $lookup: {
+        from: "cities",
+        let: {
+          cityName: "$school_details.city",
+          stateId: "$school_details.stateDetails.stateId",
+        },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$cityName', '$$cityName'] },
+                  { $eq: ['$stateId', '$$stateId'] },
+                ]
+              }
+            }
+          }
+        ],
+        as: "school_details.cityDetails"
+      }
+    },
+    {
+      $unwind: "$school_details.cityDetails",
+    },
+    {
+      $lookup: {
         from: "schoolnames",
-        localField: "school_details.school_name",
-        foreignField: "schoolName",
+        let: {
+          localSchoolNameField: '$school_details.school_name',
+          localCountryField: '$school_details.countryDetails.countryId',
+          localStateField: '$school_details.stateDetails.stateId',
+          localCityField: '$school_details.cityDetails.cityId',
+        },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$schoolName', '$$localSchoolNameField'] },
+                  { $eq: ['$country', '$$localCountryField'] },
+                  { $eq: ['$state', '$$localStateField'] },
+                  { $eq: ['$city', '$$localCityField'] },
+                ]
+              }
+            }
+          }
+        ],
+        // localField: "school_details.school_name",
+        // foreignField: "schoolName",
         as: "school_details.school_meta_details",
       },
     },
@@ -1676,9 +1859,15 @@ const getEnrollPrograms = async (req, res) => {
     let countryData = await CountryModel.findOne({
       countryId: enrolledList[i].school_details.school_meta_details.country,
     });
+    console.log({
+      countryName: countryData.countryName.toLowerCase(),
+      cId: enrolledList[i].school_details.school_meta_details.country,
+    })
     let doc = await DocsRequiredModel.findOne({
       countryName: countryData.countryName.toLowerCase(),
     });
+    if (!doc) continue;
+    console.log({ doc })
     allDocs = [...allDocs, ...doc.docsRequired];
   }
   // remove duplicate documents
@@ -1811,7 +2000,12 @@ const uploadDocument = async (req, res) => {
 };
 
 const submitAllDocs = async (req, res) => {
-  const { userId } = req.userData;
+  if (req.userData.role == "AGENT") {
+    var userId = req.body.student_id;
+  } else {
+    var { userId } = req.userData;
+  }
+
 
   var student = await StudentModel.findOne({ _id: userId });
   student.status = "IN_PROCESS";
@@ -1836,8 +2030,20 @@ const submitAllDocs = async (req, res) => {
 };
 
 const getDocuments = async (req, res) => {
+  console.log(req.userData)
   try {
-    const student_id = req.userData.userId;
+    if (req?.userData?.role == "AGENT") {
+      if (!req?.body?.student_id) {
+        res.json({
+          status: "0",
+          message: "student_id is required"
+        })
+        return;
+      }
+      var student_id = req.body.student_id;
+    } else {
+      var student_id = req.userData.userId;
+    }
 
     const protocol = req.protocol;
     const host = req.hostname;
@@ -1958,7 +2164,7 @@ const getDocuments = async (req, res) => {
   } catch (error) {
     res.json({
       status: "0",
-      message: "Student Document Uploaded Failed",
+      message: "Student Required Document Fetched Failed",
       details: {
         error,
       },
@@ -2737,14 +2943,15 @@ const handlePayment = async (req, res) => {
       })
       return;
     }
-
+    console.log("im here to send")
     file.enroll_status = status;
     file.intake = intake;
     file.fees_status = "PAID";
     file.payment_id = razorpay_payment_id;
     file.payment_date_time = Date.now();
 
-    const { userId } = req.userData
+    var userId = file.student_id;
+
     let userRole = "STUDENT"
 
     await appendFileHistory({ fileId, userId, userRole, content: "Payment Done" });
@@ -2773,9 +2980,13 @@ const handlePayment = async (req, res) => {
 const createOrder = async (req, res) => {
   try {
     // get enrolledList details
-    console.log(req.body);
-    let { userId } = req.userData;
-    let userDetails = await StudentModel.findById(userId);
+    // console.log(req.body);
+    // if (req?.userData?.role == "AGENT") {
+    //   var userId = req.body.student_id;
+    // } else {
+    //   var { userId } = req.userData;
+    // }
+
     let enrolledList = await EnrollModel.aggregate([
       {
         $match: {
@@ -2808,10 +3019,7 @@ const createOrder = async (req, res) => {
         },
       },
     ]);
-    let program = enrolledList[0].school_details.school_programs;
-    let applicationFee = program.application_fee;
-    let currency = "INR";
-    console.log({ applicationFee, currency });
+
 
     if (enrolledList.length == 0) {
       res.json({
@@ -2821,14 +3029,32 @@ const createOrder = async (req, res) => {
       return;
     }
 
+    let userDetails = await StudentModel.findById(enrolledList[0].student_id);
+    let program = enrolledList[0].school_details.school_programs;
+    let applicationFee = program.application_fee;
+    let currency = program.currency;
+
+    // get country rate according to currency
+    let rateResponse = await axios.get(`https://api.exchangerate.host/latest?base=${currency}&symbols=INR`)
+    let rates = rateResponse.data.rates["INR"]
+
+    let countryResponse = await CountryModel.findOne({
+      countryCode: currency
+    })
+
+    let finalFee = applicationFee * (rates + (countryResponse ? parseFloat(countryResponse.plusPrice) : 0))
+    // finalFee = (18 * finalFee) / 100 + finalFee
+    finalFee = finalFee * 1.18
+
     // razorpay
     let randomString = Math.floor(Math.random() * 90000) + 10000;
 
     const options = {
-      amount: parseFloat(applicationFee) * 100,
-      currency: currency,
+      amount: Math.round(finalFee) * 100,
+      currency: "INR",
       receipt: randomString, //any unique id
     }
+    console.log({ options })
 
     const response = await razorpay.orders.create(options)
     console.log({ response })
@@ -2844,11 +3070,122 @@ const createOrder = async (req, res) => {
   catch (err) {
     res.json({
       status: "0",
-      message: err.message,
+      message: err,
     });
   }
 }
 
+
+const landingPage = async (req, res) => {
+  const protocol = req.protocol;
+  const host = req.hostname;
+  const url = req.originalUrl;
+  const port = process.env.PORT || 3006;
+  if (host === "localhost") {
+    var fullUrl = `${protocol}://${host}:${port}`;
+  } else {
+    var fullUrl = `${protocol}://${host}`;
+  }
+
+  let countries = await SchoolNamesModel.aggregate([
+    {
+      $group: { _id: "$country" }
+    },
+    {
+      $lookup: {
+        from: "countries",
+        localField: "_id",
+        foreignField: "countryId",
+        as: "countryDetails"
+      }
+    },
+    {
+      $unwind: {
+        path: "$countryDetails",
+      }
+    },
+  ])
+
+  // streams
+  let streamMapping = {
+    "Arts": ["Arts"],
+    "Medical": ["Medicine", "Nursing", "Paramedic"],
+    "Commerce": ["Business", "Management", "Economics", "Administration"],
+    "Other": ["Engineering", "Technology",
+      "Skill Trades",
+      "Transportation",
+      "Science",
+      "Arts",
+      "Business",
+      "Management",
+      "Economics",
+      "Administration",
+      "Law",
+      "Politics",
+      "Community Services",
+      "Education",
+      "English For Academic Studies",
+      "Health Sciences",
+      "Medicine",
+      "Nursing",
+      "Paramedic",
+      "Accounting",
+      "Design and Media",]
+  }
+  let streams = ["Arts", "Medical", "Commerce", "Other"]
+  let programs = []
+  for (let i = 0; i < streams.length; i++) {
+    let new_stream = streamMapping[streams[i]]
+    var totalData = await SchoolModel.aggregate([
+      {
+        $unwind: {
+          path: "$school_programs",
+        },
+      },
+      {
+        $match: {
+          $expr: {
+            $gt: [
+              {
+                $size: {
+                  $setIntersection: [
+                    "$school_programs.new_stream",
+                    new_stream,
+                  ],
+                },
+              },
+              0,
+            ],
+          },
+        }
+      },
+      {
+        $limit: 2,
+      },
+    ]);
+
+    programs.push({ stream: streams[i], totalData })
+  }
+
+  // End - streams
+  let schoolsLogo = await SchoolNamesModel.find()
+  let topSchools = await SchoolNamesModel.find().limit(3)
+
+  res.json({
+    status: "1",
+    details: {
+      baseUrl: fullUrl + "/uploads/agent/",
+      countries,
+      top_courses: {
+        streams,
+        programs
+      },
+      schoolsLogo,
+      topSchools
+    }
+  })
+
+}
 
 
 module.exports = {
@@ -2865,6 +3202,7 @@ module.exports = {
   resendEmail,
   getEmailVerification,
   studentSearch,
+  // studentSearchProgram,
   enrollProgram,
   fillsearchqueries,
   forgotPassword,
@@ -2878,5 +3216,6 @@ module.exports = {
   setRemark,
   getRemarks,
   handlePayment,
-  createOrder
+  createOrder,
+  landingPage
 };

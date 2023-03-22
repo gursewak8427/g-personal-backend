@@ -18,7 +18,7 @@ const fs = require("fs");
 const csv = require("csvtojson");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const { ObjectId } = require("bson");
+const { ObjectId, ObjectID } = require("bson");
 const { trim } = require("lodash");
 const { v4: uuidv4 } = require("uuid");
 const { default: axios } = require("axios");
@@ -391,6 +391,7 @@ const registerAdmin = async (req, res) => {
 
 const getStudents = async (req, res) => {
   try {
+    console.log("Data Student Fetching....");
     var students = [];
     let data = req.body;
 
@@ -401,9 +402,12 @@ const getStudents = async (req, res) => {
 
     if (data?.agentId) {
       let totalStudents = await StudentModel.find({
-        agent_id: data.agentId,
-      }).sort({ createdAt: "-1" });
-      students = await StudentModel.find({ agent_id: data.agentId })
+        agent_id: ObjectId(data.agentId),
+      })
+        .populate("agent_id")
+        .sort({ createdAt: "-1" });
+      students = await StudentModel.find({ agent_id: ObjectId(data.agentId) })
+        .populate("agent_id")
         .sort({ createdAt: "-1" })
         .skip(perPage * (currentPage - 1) || 0)
         .limit(perPage);
@@ -413,7 +417,9 @@ const getStudents = async (req, res) => {
         totalPages++;
       }
     } else {
-      let totalStudents = await StudentModel.find().sort({ createdAt: "-1" });
+      let totalStudents = await StudentModel.find()
+        .populate("agent_id")
+        .sort({ createdAt: "-1" });
       students = await StudentModel.find()
         .populate("agent_id")
         .sort({ createdAt: "-1" })
@@ -807,7 +813,172 @@ const getSchools = async (req, res) => {
       const cityDtl = await CityModel.findOne({ cityId: data.cityId });
       q1.push({ city: cityDtl.cityName });
     }
+    // #newFilter
+    if (data?.filter_type) {
+      if (data?.filter_type === "PUBLIC_COLLEGE") {
+        q1.push({ type: "Public College" });
+      }
+      if (data?.filter_type === "PUBLIC_UNIVERSITY") {
+        q1.push({ type: "Public University" });
+      }
+      if (data?.filter_type === "PRIVATE_COLLEGE") {
+        q1.push({ type: "Private College" });
+      }
+      if (data?.filter_type === "PRIVATE_UNIVERSITY") {
+        q1.push({ type: "Private University" });
+      }
+    }
+    if (data?.filter_total_students) {
+      if (data?.filter_total_students.min && data?.filter_total_students.max) {
+        q1.push({
+          $and: [
+            { total_student: { $gte: data?.filter_total_students.min } },
+            { total_student: { $lte: data?.filter_total_students.max } },
+          ],
+        });
+      }
+      if (data?.filter_total_students.min && !data?.filter_total_students.max) {
+        q1.push({
+          $and: [{ total_student: { $gte: data?.filter_total_students.min } }],
+        });
+      }
+      if (!data?.filter_total_students.min && data?.filter_total_students.max) {
+        q1.push({
+          $and: [{ total_student: { $lte: data?.filter_total_students.max } }],
+        });
+      }
+    }
+    if (data?.filter_international_students) {
+      if (
+        data?.filter_international_students.min &&
+        data?.filter_international_students.max
+      ) {
+        q1.push({
+          $and: [
+            {
+              international_student: {
+                $gte: data?.filter_international_students.min,
+              },
+            },
+            {
+              international_student: {
+                $lte: data?.filter_international_students.max,
+              },
+            },
+          ],
+        });
+      }
+      if (
+        data?.filter_international_students.min &&
+        !data?.filter_international_students.max
+      ) {
+        q1.push({
+          $and: [
+            {
+              international_student: {
+                $gte: data?.filter_international_students.min,
+              },
+            },
+          ],
+        });
+      }
+      if (
+        !data?.filter_international_students.min &&
+        data?.filter_international_students.max
+      ) {
+        q1.push({
+          $and: [
+            {
+              international_student: {
+                $lte: data?.filter_international_students.max,
+              },
+            },
+          ],
+        });
+      }
+    }
+
+    // filter Founded
+    if (data?.filter_founded) {
+      if (data?.filter_founded.min && data?.filter_founded.max) {
+        q1.push({
+          $and: [
+            { founded: { $gte: data?.filter_founded.min } },
+            { founded: { $lte: data?.filter_founded.max } },
+          ],
+        });
+      }
+      if (data?.filter_founded.min && !data?.filter_founded.max) {
+        q1.push({
+          $and: [{ founded: { $gte: data?.filter_founded.min } }],
+        });
+      }
+      if (!data?.filter_founded.min && data?.filter_founded.max) {
+        q1.push({
+          $and: [{ founded: { $lte: data?.filter_founded.max } }],
+        });
+      }
+    }
+
+    // true false
+    if (data?.filter_accomodation_features === true) {
+      q1.push({ accomodation_feature: true });
+    }
+    if (data?.filter_accomodation_features === false) {
+      q1.push({ accomodation_feature: false });
+    }
+
+    // true false
+    if (data?.filter_work_permit_feature === true) {
+      q1.push({ work_permit_feature: true });
+    }
+    if (data?.filter_work_permit_feature === false) {
+      q1.push({ work_permit_feature: false });
+    }
+    // true false
+    if (data?.filter_program_cooporation === true) {
+      q1.push({ program_cooporation: true });
+    }
+    if (data?.filter_program_cooporation === false) {
+      q1.push({ program_cooporation: false });
+    }
+
+    // true false
+    if (data?.filter_work_while_study === true) {
+      q1.push({ work_while_study: true });
+    }
+    if (data?.filter_work_while_study === false) {
+      q1.push({ work_while_study: false });
+    }
+
+    // true false
+    if (data?.filter_condition_offer_letter === true) {
+      q1.push({ condition_offer_letter: true });
+    }
+    if (data?.filter_condition_offer_letter === false) {
+      q1.push({ condition_offer_letter: false });
+    }
+
+    // true false
+    if (data?.filter_library === true) {
+      q1.push({ library: true });
+    }
+    if (data?.filter_library === false) {
+      q1.push({ library: false });
+    }
+
+    // true false
+    if (data?.filter_top_status === true) {
+      q1.push({ top_status: true });
+    }
+    if (data?.filter_top_status === false) {
+      q1.push({ top_status: false });
+    }
+
     console.log({ q1 });
+    // res.json(q1)
+    // return;
+
     if (data?.searchItem) {
       // check search item inside school_name, location, country, program_name etc.
       q1.push({
@@ -825,7 +996,7 @@ const getSchools = async (req, res) => {
     let currentPage = data.currentPage;
 
     // get schoolnames with matching address
-    var total_schools = await SchoolNamesModel.aggregate([
+    var total_schools = await SchoolModel.aggregate([
       {
         $match: q1.length != 0 ? { $and: q1 } : {},
       },
@@ -837,14 +1008,99 @@ const getSchools = async (req, res) => {
       },
       {
         $lookup: {
+          from: "countries",
+          localField: "country",
+          foreignField: "countryName",
+          as: "countryDetails",
+        },
+      },
+      {
+        $unwind: {
+          path: "$countryDetails",
+        },
+      },
+      {
+        $lookup: {
+          from: "states",
+          let: {
+            stateName: "$state",
+            countryId: "$countryDetails.countryId",
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$stateName", "$$stateName"] },
+                    { $eq: ["$countryId", "$$countryId"] },
+                  ],
+                },
+              },
+            },
+          ],
+          as: "stateDetails",
+        },
+      },
+      {
+        $unwind: "$stateDetails",
+      },
+      {
+        $lookup: {
+          from: "cities",
+          let: {
+            cityName: "$city",
+            stateId: "$stateDetails.stateId",
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$cityName", "$$cityName"] },
+                    { $eq: ["$stateId", "$$stateId"] },
+                  ],
+                },
+              },
+            },
+          ],
+          as: "cityDetails",
+        },
+      },
+      {
+        $unwind: "$cityDetails",
+      },
+      {
+        $lookup: {
           from: "schoolnames",
-          localField: "school_name",
-          foreignField: "schoolName",
+          let: {
+            localSchoolNameField: "$school_name",
+            localCountryField: "$countryDetails.countryId",
+            localStateField: "$stateDetails.stateId",
+            localCityField: "$cityDetails.cityId",
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$schoolName", "$$localSchoolNameField"] },
+                    { $eq: ["$country", "$$localCountryField"] },
+                    { $eq: ["$state", "$$localStateField"] },
+                    { $eq: ["$city", "$$localCityField"] },
+                  ],
+                },
+              },
+            },
+          ],
+          // localField: "school_details.school_name",
+          // foreignField: "schoolName",
           as: "school_meta_details",
         },
       },
       {
-        $unwind: "$school_meta_details",
+        $unwind: {
+          path: "$school_meta_details",
+        },
       },
       {
         $skip: perPage * (currentPage - 1),
@@ -954,34 +1210,442 @@ const getSchools = async (req, res) => {
 
 const getSchoolsPrograms = async (req, res) => {
   try {
+    const protocol = req.protocol;
+    const host = req.hostname;
+    const url = req.originalUrl;
+    const port = process.env.PORT || 3006;
+
+    if (host == "localhost") {
+      var fullUrl = `${protocol}://${host}:${port}`;
+    } else {
+      var fullUrl = `${protocol}://${host}`;
+    }
+    // const fullUrl = `${protocol}://${host}`
+
+    var schools = [];
     let data = req.body;
 
-    console.log(req.body);
+    var q1 = [];
+    var q2 = []; // for inside search programs
 
-    /*
-            1) School Name
-            2) country name
-            3) serach program name
- 
-            then find only programs of filters
-        */
+    if (data?.countryId) {
+      // query of country
+      const cntryDtl = await CountryModel.findOne({
+        countryId: data.countryId,
+      });
+      q1.push({ country: cntryDtl.countryName });
+    }
+    if (data?.schoolId) {
+      // query of country
+      q1.push({ _id: ObjectId(data.schoolId) });
+    }
+    if (data?.stateId) {
+      // query of state
+      const stateDtl = await StateModel.findOne({ stateId: data.stateId });
+      q1.push({ state: stateDtl.stateName });
+    }
+    if (data?.cityId) {
+      // query of city
+      const cityDtl = await CityModel.findOne({ cityId: data.cityId });
+      q1.push({ city: cityDtl.cityName });
+    }
+
+    // For Inside school_programs use Q2 not Q1 =================================================================
+    if (data?.searchItem) {
+      // check search item inside school_name, location, country, program_name etc.
+      q2.push({
+        $or: [
+          {
+            "school_programs.program_name": {
+              $regex: `${data.searchItem.toString().trim()}`,
+              $options: "i",
+            },
+          },
+          {
+            "school_programs.program_name": {
+              $regex: `^${data.searchItem.toString().trim()}`,
+              $options: "i",
+            },
+          },
+          // { 'country': { $regex: data.searchItem, $options: 'i' } },
+        ],
+      });
+    }
+
+    // filter Founded
+    // if (data?.filter_duration) {
+    //     if (data?.filter_duration.min && data?.filter_duration.max) {
+    //         q1.push({
+    //             $and: [
+    //                 { 'duration': { $gte: data?.filter_duration.min } },
+    //                 { 'duration': { $lte: data?.filter_duration.max } },
+    //             ]
+    //         })
+    //     }
+    //     if (data?.filter_duration.min && !data?.filter_duration.max) {
+    //         q1.push({
+    //             $and: [
+    //                 { 'duration': { $gte: data?.filter_duration.min } },
+    //             ]
+    //         })
+    //     }
+    //     if (!data?.filter_duration.min && data?.filter_duration.max) {
+    //         q1.push({
+    //             $and: [
+    //                 { 'duration': { $lte: data?.filter_duration.max } },
+    //             ]
+    //         })
+    //     }
+    // }
+
+    if (data?.filter_grade_score) {
+      if (data?.filter_grade_score.min && data?.filter_grade_score.max) {
+        q2.push({
+          $and: [
+            { grade_score: { $gte: data?.filter_grade_score.min } },
+            { grade_score: { $lte: data?.filter_grade_score.max } },
+          ],
+        });
+      }
+      if (data?.filter_grade_score.min && !data?.filter_grade_score.max) {
+        q2.push({
+          $and: [{ grade_score: { $gte: data?.filter_grade_score.min } }],
+        });
+      }
+      if (!data?.filter_grade_score.min && data?.filter_grade_score.max) {
+        q2.push({
+          $and: [{ grade_score: { $lte: data?.filter_grade_score.max } }],
+        });
+      }
+    }
+
+    if (data?.filter_overall_band) {
+      if (data?.filter_overall_band.min && data?.filter_overall_band.max) {
+        q2.push({
+          $and: [
+            { overall_band: { $gte: data?.filter_overall_band.min } },
+            { overall_band: { $lte: data?.filter_overall_band.max } },
+          ],
+        });
+      }
+      if (data?.filter_overall_band.min && !data?.filter_overall_band.max) {
+        q2.push({
+          $and: [{ overall_band: { $gte: data?.filter_overall_band.min } }],
+        });
+      }
+      if (!data?.filter_overall_band.min && data?.filter_overall_band.max) {
+        q2.push({
+          $and: [{ overall_band: { $lte: data?.filter_overall_band.max } }],
+        });
+      }
+    }
+
+    if (data?.filter_pte_score) {
+      if (data?.filter_pte_score.min && data?.filter_pte_score.max) {
+        q2.push({
+          $and: [
+            { pte_score: { $gte: data?.filter_pte_score.min } },
+            { pte_score: { $lte: data?.filter_pte_score.max } },
+          ],
+        });
+      }
+      if (data?.filter_pte_score.min && !data?.filter_pte_score.max) {
+        q2.push({
+          $and: [{ pte_score: { $gte: data?.filter_pte_score.min } }],
+        });
+      }
+      if (!data?.filter_pte_score.min && data?.filter_pte_score.max) {
+        q2.push({
+          $and: [{ pte_score: { $lte: data?.filter_pte_score.max } }],
+        });
+      }
+    }
+
+    if (data?.filter_tofel_point) {
+      if (data?.filter_tofel_point.min && data?.filter_tofel_point.max) {
+        q2.push({
+          $and: [
+            { tofel_point: { $gte: data?.filter_tofel_point.min } },
+            { tofel_point: { $lte: data?.filter_tofel_point.max } },
+          ],
+        });
+      }
+      if (data?.filter_tofel_point.min && !data?.filter_tofel_point.max) {
+        q2.push({
+          $and: [{ tofel_point: { $gte: data?.filter_tofel_point.min } }],
+        });
+      }
+      if (!data?.filter_tofel_point.min && data?.filter_tofel_point.max) {
+        q2.push({
+          $and: [{ tofel_point: { $lte: data?.filter_tofel_point.max } }],
+        });
+      }
+    }
+
+    if (data?.filter_application_fee) {
+      if (
+        data?.filter_application_fee.min &&
+        data?.filter_application_fee.max
+      ) {
+        q2.push({
+          $and: [
+            { application_fee: { $gte: data?.filter_application_fee.min } },
+            { application_fee: { $lte: data?.filter_application_fee.max } },
+          ],
+        });
+      }
+      if (
+        data?.filter_application_fee.min &&
+        !data?.filter_application_fee.max
+      ) {
+        q2.push({
+          $and: [
+            { application_fee: { $gte: data?.filter_application_fee.min } },
+          ],
+        });
+      }
+      if (
+        !data?.filter_application_fee.min &&
+        data?.filter_application_fee.max
+      ) {
+        q2.push({
+          $and: [
+            { application_fee: { $lte: data?.filter_application_fee.max } },
+          ],
+        });
+      }
+    }
+
+    if (data?.filter_cost_of_living) {
+      if (data?.filter_cost_of_living.min && data?.filter_cost_of_living.max) {
+        q2.push({
+          $and: [
+            { cost_of_living: { $gte: data?.filter_cost_of_living.min } },
+            { cost_of_living: { $lte: data?.filter_cost_of_living.max } },
+          ],
+        });
+      }
+      if (data?.filter_cost_of_living.min && !data?.filter_cost_of_living.max) {
+        q2.push({
+          $and: [{ cost_of_living: { $gte: data?.filter_cost_of_living.min } }],
+        });
+      }
+      if (!data?.filter_cost_of_living.min && data?.filter_cost_of_living.max) {
+        q2.push({
+          $and: [{ cost_of_living: { $lte: data?.filter_cost_of_living.max } }],
+        });
+      }
+    }
+
+    if (data?.acceptance_letter) {
+      if (data?.acceptance_letter.min && data?.acceptance_letter.max) {
+        q2.push({
+          $and: [
+            { acceptance_letter: { $gte: data?.acceptance_letter.min } },
+            { acceptance_letter: { $lte: data?.acceptance_letter.max } },
+          ],
+        });
+      }
+      if (data?.acceptance_letter.min && !data?.acceptance_letter.max) {
+        q2.push({
+          $and: [{ acceptance_letter: { $gte: data?.acceptance_letter.min } }],
+        });
+      }
+      if (!data?.acceptance_letter.min && data?.acceptance_letter.max) {
+        q2.push({
+          $and: [{ acceptance_letter: { $lte: data?.acceptance_letter.max } }],
+        });
+      }
+    }
+
+    if (data?.filter_acceptance_letter) {
+      if (
+        data?.filter_acceptance_letter.min &&
+        data?.filter_acceptance_letter.max
+      ) {
+        q2.push({
+          $and: [
+            { acceptance_letter: { $gte: data?.filter_acceptance_letter.min } },
+            { acceptance_letter: { $lte: data?.filter_acceptance_letter.max } },
+          ],
+        });
+      }
+      if (
+        data?.filter_acceptance_letter.min &&
+        !data?.filter_acceptance_letter.max
+      ) {
+        q2.push({
+          $and: [
+            { acceptance_letter: { $gte: data?.filter_acceptance_letter.min } },
+          ],
+        });
+      }
+      if (
+        !data?.filter_acceptance_letter.min &&
+        data?.filter_acceptance_letter.max
+      ) {
+        q2.push({
+          $and: [
+            { acceptance_letter: { $lte: data?.filter_acceptance_letter.max } },
+          ],
+        });
+      }
+    }
+
+    if (data?.filter_visa_processing_days) {
+      if (
+        data?.filter_visa_processing_days.min &&
+        data?.filter_visa_processing_days.max
+      ) {
+        q2.push({
+          $and: [
+            {
+              visa_processing_days: {
+                $gte: data?.filter_visa_processing_days.min,
+              },
+            },
+            {
+              visa_processing_days: {
+                $lte: data?.filter_visa_processing_days.max,
+              },
+            },
+          ],
+        });
+      }
+      if (
+        data?.filter_visa_processing_days.min &&
+        !data?.filter_visa_processing_days.max
+      ) {
+        q2.push({
+          $and: [
+            {
+              visa_processing_days: {
+                $gte: data?.filter_visa_processing_days.min,
+              },
+            },
+          ],
+        });
+      }
+      if (
+        !data?.filter_visa_processing_days.min &&
+        data?.filter_visa_processing_days.max
+      ) {
+        q2.push({
+          $and: [
+            {
+              visa_processing_days: {
+                $lte: data?.filter_visa_processing_days.max,
+              },
+            },
+          ],
+        });
+      }
+    }
+
+    if (data?.filter_proccess_days) {
+      if (data?.filter_proccess_days.min && data?.filter_proccess_days.max) {
+        q2.push({
+          $and: [
+            { process_days: { $gte: data?.filter_proccess_days.min } },
+            { process_days: { $lte: data?.filter_proccess_days.max } },
+          ],
+        });
+      }
+      if (data?.filter_proccess_days.min && !data?.filter_proccess_days.max) {
+        q2.push({
+          $and: [{ process_days: { $gte: data?.filter_proccess_days.min } }],
+        });
+      }
+      if (!data?.filter_proccess_days.min && data?.filter_proccess_days.max) {
+        q2.push({
+          $and: [{ process_days: { $lte: data?.filter_proccess_days.max } }],
+        });
+      }
+    }
+
+    if (data?.filter_credentials) {
+      // query of city
+      q2.push({ credentials: data?.filter_credentials });
+    }
+
+    if (data?.filter_program_level) {
+      // query of city
+      q2.push({ program_level: data?.filter_program_level });
+    }
+
+    if (data?.filter_foundation_fee) {
+      if (data?.filter_foundation_fee.min && data?.filter_foundation_fee.max) {
+        q2.push({
+          $and: [
+            { foundation_fee: { $gte: data?.filter_foundation_fee.min } },
+            { foundation_fee: { $lte: data?.filter_foundation_fee.max } },
+          ],
+        });
+      }
+      if (data?.filter_foundation_fee.min && !data?.filter_foundation_fee.max) {
+        q2.push({
+          $and: [{ foundation_fee: { $gte: data?.filter_foundation_fee.min } }],
+        });
+      }
+      if (!data?.filter_foundation_fee.min && data?.filter_foundation_fee.max) {
+        q2.push({
+          $and: [{ foundation_fee: { $lte: data?.filter_foundation_fee.max } }],
+        });
+      }
+    }
+
+    if (data?.filter_acceptable_band) {
+      q2.push({ acceptable_band: data?.filter_acceptable_band });
+    }
+
+    if (data?.filter_module) {
+      q2.push({ module: data?.filter_module });
+    }
+
+    if (data?.filter_few_seats_status == true) {
+      q2.push({ few_seats_status: true });
+    }
+
+    if (data?.filter_few_seats_status == false) {
+      q2.push({ few_seats_status: false });
+    }
+
+    if (data?.filter_top_status == true) {
+      q2.push({ top_status: true });
+    }
+
+    if (data?.filter_top_status == false) {
+      q2.push({ top_status: false });
+    }
+
+    if (data?.filter_foundation_fee) {
+      if (data?.filter_foundation_fee.min && data?.filter_foundation_fee.max) {
+        q2.push({
+          $and: [
+            { foundation_fee: { $gte: data?.filter_foundation_fee.min } },
+            { foundation_fee: { $lte: data?.filter_foundation_fee.max } },
+          ],
+        });
+      }
+      if (data?.filter_foundation_fee.min && !data?.filter_foundation_fee.max) {
+        q2.push({
+          $and: [{ foundation_fee: { $gte: data?.filter_foundation_fee.min } }],
+        });
+      }
+      if (!data?.filter_foundation_fee.min && data?.filter_foundation_fee.max) {
+        q2.push({
+          $and: [{ foundation_fee: { $lte: data?.filter_foundation_fee.max } }],
+        });
+      }
+    }
+
+    // END - For Inside school_programs use Q2 not Q1 =================================================================
+
+    // console.log({ q1, q2: q2[0]["$or"] });
 
     var totalData = await SchoolModel.aggregate([
       {
-        $match: {
-          $and: [
-            data?.schoolName ? { _id: ObjectId(data?.schoolName) } : {},
-            data?.country ? { country: data?.country } : {},
-            data?.searchItem
-              ? {
-                  "school_programs.program_name": {
-                    $regex: data.searchItem,
-                    $options: "i",
-                  },
-                }
-              : {},
-          ],
-        },
+        $match: q1.length != 0 ? { $and: q1 } : {},
       },
       {
         $unwind: {
@@ -989,18 +1653,7 @@ const getSchoolsPrograms = async (req, res) => {
         },
       },
       {
-        $match: {
-          $and: [
-            data?.searchItem
-              ? {
-                  "school_programs.program_name": {
-                    $regex: data.searchItem,
-                    $options: "i",
-                  },
-                }
-              : {},
-          ],
-        },
+        $match: q2.length != 0 ? { $and: q2 } : {},
       },
       {
         $group: {
@@ -1009,6 +1662,8 @@ const getSchoolsPrograms = async (req, res) => {
           school_about: { $first: "$school_about" },
           school_location: { $first: "$school_location" },
           country: { $first: "$country" },
+          city: { $first: "$city" },
+          state: { $first: "$state" },
           type: { $first: "$type" },
           total_student: { $first: "$total_student" },
           international_student: { $first: "$international_student" },
@@ -1025,6 +1680,7 @@ const getSchoolsPrograms = async (req, res) => {
               program_name: "$school_programs.program_name",
               description: "$school_programs.description",
               duration: "$school_programs.duration",
+              duration_sem_per_year: "$school_programs.duration_sem_per_year",
               grade_score: "$school_programs.grade_score",
               overall_band: "$school_programs.overall_band",
               pte_score: "$school_programs.pte_score",
@@ -1062,8 +1718,6 @@ const getSchoolsPrograms = async (req, res) => {
         },
       },
     ]);
-
-    console.log({ totalData });
 
     res.json({
       status: 1,
@@ -1901,7 +2555,6 @@ const updateIntakes = async (req, res) => {
     },
   });
 };
-
 const getSingleSchool = async (req, res) => {
   const { schoolId } = req.body;
 
@@ -1915,6 +2568,43 @@ const getSingleSchool = async (req, res) => {
     details: {
       countries,
       schoolDetails,
+    },
+  });
+};
+const getSingleProgram = async (req, res) => {
+  const { schoolId, programId } = req.body;
+
+  let countries = await CountryModel.find();
+
+  let schoolDetails = await SchoolModel.aggregate([
+    {
+      $match: {
+        _id: ObjectId(schoolId),
+      },
+    },
+    {
+      $unwind: "$school_programs",
+    },
+    {
+      $match: {
+        "school_programs.program_id": programId,
+      },
+    },
+  ]);
+
+  if (schoolDetails.length == 0) {
+    res.json({
+      status: "0",
+      message: "School Not Found",
+    });
+    return;
+  }
+
+  res.json({
+    status: "1",
+    message: "Single Program Data Founded",
+    details: {
+      programDetail: schoolDetails[0].school_programs,
     },
   });
 };
@@ -2187,9 +2877,12 @@ const getEnrollPrograms = async (req, res) => {
   // get enrolledList details
   let enrolledList = await EnrollModel.aggregate([
     {
-      $match: {
-        enroll_status: type,
-      },
+      $match:
+        type != "ALL"
+          ? {
+              enroll_status: type,
+            }
+          : {},
     },
     {
       $lookup: {
@@ -2231,9 +2924,92 @@ const getEnrollPrograms = async (req, res) => {
     },
     {
       $lookup: {
+        from: "countries",
+        localField: "school_details.country",
+        foreignField: "countryName",
+        as: "school_details.countryDetails",
+      },
+    },
+    {
+      $unwind: {
+        path: "$school_details.countryDetails",
+      },
+    },
+    {
+      $lookup: {
+        from: "states",
+        let: {
+          stateName: "$school_details.state",
+          countryId: "$school_details.countryDetails.countryId",
+        },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ["$stateName", "$$stateName"] },
+                  { $eq: ["$countryId", "$$countryId"] },
+                ],
+              },
+            },
+          },
+        ],
+        as: "school_details.stateDetails",
+      },
+    },
+    {
+      $unwind: "$school_details.stateDetails",
+    },
+    {
+      $lookup: {
+        from: "cities",
+        let: {
+          cityName: "$school_details.city",
+          stateId: "$school_details.stateDetails.stateId",
+        },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ["$cityName", "$$cityName"] },
+                  { $eq: ["$stateId", "$$stateId"] },
+                ],
+              },
+            },
+          },
+        ],
+        as: "school_details.cityDetails",
+      },
+    },
+    {
+      $unwind: "$school_details.cityDetails",
+    },
+    {
+      $lookup: {
         from: "schoolnames",
-        localField: "school_details.school_name",
-        foreignField: "schoolName",
+        let: {
+          localSchoolNameField: "$school_details.school_name",
+          localCountryField: "$school_details.countryDetails.countryId",
+          localStateField: "$school_details.stateDetails.stateId",
+          localCityField: "$school_details.cityDetails.cityId",
+        },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ["$schoolName", "$$localSchoolNameField"] },
+                  { $eq: ["$country", "$$localCountryField"] },
+                  { $eq: ["$state", "$$localStateField"] },
+                  { $eq: ["$city", "$$localCityField"] },
+                ],
+              },
+            },
+          },
+        ],
+        // localField: "school_details.school_name",
+        // foreignField: "schoolName",
         as: "school_details.school_meta_details",
       },
     },
@@ -2578,6 +3354,72 @@ const setNewPassword = async (req, res) => {
   }
 };
 
+const addCurrency = async (req, res) => {
+  const { countryId, countryCode, plusPrice } = req.body;
+
+  var olddata = await CountryModel.findOne({
+    countrySortName: countryId,
+    countryCode: countryCode,
+  });
+
+  if (olddata) {
+    res.json({ message: "Currency details already added", status: "0" });
+    return;
+  }
+
+  var data = await CountryModel.findOne({
+    countrySortName: countryId,
+  });
+
+  if (!data) {
+    res.json({ message: "Country Not Found", status: "0" });
+    return;
+  }
+
+  console.log({ data });
+
+  data.countryCode = countryCode;
+  data.plusPrice = plusPrice;
+
+  await data.save();
+
+  res.json({
+    message: "Currency Details Uploaded",
+    status: "1",
+    details: { newCurrency: data },
+  });
+};
+
+const getCurrency = async (req, res) => {
+  var data = await CountryModel.find({
+    $and: [
+      { countryCode: { $ne: undefined } },
+      { countryCode: { $ne: "" } },
+      { countryCode: { $ne: null } },
+    ],
+  });
+
+  res.json({
+    message: "List Found Successfully",
+    status: "1",
+    details: { list: data },
+  });
+};
+
+const deleteCurrency = async (req, res) => {
+  try {
+    const { id } = req.params;
+    let country = await CountryModel.findById(id);
+    country.countryCode = "";
+    country.plusPrice = "";
+    await country.save();
+    res.json({ message: "Currency Deleted successfully", status: "1" });
+  } catch (error) {
+    console.log(error);
+    res.json({ message: "Server Error", status: "0" });
+  }
+};
+
 module.exports = {
   // ******* 14 March, 2023 ********
   getProfile,
@@ -2617,6 +3459,7 @@ module.exports = {
   findIntakes,
   updateIntakes,
   getSingleSchool,
+  getSingleProgram,
   getschoolnames,
   toggletopstatus,
   toggletopstatusschool,
@@ -2630,4 +3473,8 @@ module.exports = {
   getEnrollPrograms,
   updateEnrollStatus,
   sendRemark,
+
+  addCurrency,
+  getCurrency,
+  deleteCurrency,
 };

@@ -393,7 +393,7 @@ const agentRegister = async (req, res) => {
 const agentAddStudent = async (req, res) => {
     try {
         const { userId } = req.userData
-        const { email, phone } = req.body;
+        const { email, phone, fromEnroll } = req.body;
 
         if (userId) {
             var agentDetails = await AgentModel.findById(userId);
@@ -415,6 +415,33 @@ const agentAddStudent = async (req, res) => {
         }
         let student = await StudentModel.findOne({ $or: [{ phone }, { email }] });
         if (student) {
+            if (student.agent_id != userId) {
+                res.json({
+                    status: "0",
+                    message: "Student is not registered with this agent"
+                })
+                return;
+            }
+            if (fromEnroll) {
+                console.log("im here inside from Enroll")
+
+                let studentId = student._id
+                let schoolId = req.body.school_id
+                let programId = req.body.program_id
+
+                // find Student
+                const CONFIG = { headers: { "Authorization": `Bearer ${req.userData.token}` } }
+                let ENDPOINT = "http://localhost:3006/student/enroll"
+                const response = await axios.post(ENDPOINT, {
+                    "student_id": studentId,
+                    "school_id": schoolId,
+                    "program_id": programId
+                },
+                    CONFIG
+                );
+                res.json(response.data)
+                return;
+            }
             let error = [];
             if (student.phone == phone) {
                 error.push("phone");
@@ -427,8 +454,6 @@ const agentAddStudent = async (req, res) => {
                 message: error.join(" and ") + " is already used",
             });
         } else {
-
-            
             let student = new StudentModel({
                 ...req.body,
                 agent_id: ObjectId(agentDetails._id)
@@ -437,6 +462,8 @@ const agentAddStudent = async (req, res) => {
             try {
                 let response = await student.save();
                 console.log(response);
+
+
             } catch (error) {
                 if (error.name === "ValidationError") {
                     let errorsData = {};
@@ -487,6 +514,33 @@ const agentAddStudent = async (req, res) => {
                 `Student Registered Successfully - ${student.email}`
             );
 
+            if (fromEnroll) {
+                console.log("im here inside from Enroll")
+
+                let studentId = student._id
+                let schoolId = req.body.school_id
+                let programId = req.body.program_id
+
+                // find Student
+                const CONFIG = { headers: { "Authorization": `Bearer ${req.userData.token}` } }
+                let ENDPOINT = "http://localhost:3006/student/enroll"
+                const response = await axios.post(ENDPOINT, {
+                    "student_id": studentId,
+                    "school_id": schoolId,
+                    "program_id": programId
+                },
+                    CONFIG
+                );
+                if (response.data.status == "1") {
+                    res.json({
+                        status: "1",
+                        message: "Student Registred and Enrolled successfully"
+                    })
+                } else {
+                    res.json(response.data)
+                }
+                return;
+            }
 
             res.json({
                 status: "1",
@@ -522,8 +576,8 @@ const agentGetStudents = async (req, res) => {
         let totalPages = 0;
         let currentPage = data.currentPage;
 
-        let totalStudents = await StudentModel.find({ agent_id: userId })
-        let students = await StudentModel.find({ agent_id: userId }).skip((perPage * (currentPage - 1)) || 0).limit(perPage)
+        let totalStudents = await StudentModel.find({ agent_id: ObjectId(userId) })
+        let students = await StudentModel.find({ agent_id: ObjectId(userId) }).skip((perPage * (currentPage - 1)) || 0).limit(perPage)
 
         totalPages = parseInt(totalStudents.length / perPage)
         if (totalStudents.length % perPage != 0) {
@@ -797,6 +851,17 @@ const getAgentEnrolledList = async (req, res) => {
         },
         {
             $lookup: {
+                from: "students",
+                localField: "student_id",
+                foreignField: "_id",
+                as: "student_details",
+            },
+        },
+        {
+            $unwind: "$student_details"
+        },
+        {
+            $lookup: {
                 from: "schools",
                 localField: "school_id",
                 foreignField: "_id",
@@ -822,9 +887,92 @@ const getAgentEnrolledList = async (req, res) => {
         },
         {
             $lookup: {
+                from: "countries",
+                localField: "school_details.country",
+                foreignField: "countryName",
+                as: "school_details.countryDetails"
+            }
+        },
+        {
+            $unwind: {
+                path: "$school_details.countryDetails",
+            }
+        },
+        {
+            $lookup: {
+                from: "states",
+                let: {
+                    stateName: "$school_details.state",
+                    countryId: "$school_details.countryDetails.countryId",
+                },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: {
+                                $and: [
+                                    { $eq: ['$stateName', '$$stateName'] },
+                                    { $eq: ['$countryId', '$$countryId'] },
+                                ]
+                            }
+                        }
+                    }
+                ],
+                as: "school_details.stateDetails"
+            }
+        },
+        {
+            $unwind: "$school_details.stateDetails",
+        },
+        {
+            $lookup: {
+                from: "cities",
+                let: {
+                    cityName: "$school_details.city",
+                    stateId: "$school_details.stateDetails.stateId",
+                },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: {
+                                $and: [
+                                    { $eq: ['$cityName', '$$cityName'] },
+                                    { $eq: ['$stateId', '$$stateId'] },
+                                ]
+                            }
+                        }
+                    }
+                ],
+                as: "school_details.cityDetails"
+            }
+        },
+        {
+            $unwind: "$school_details.cityDetails",
+        },
+        {
+            $lookup: {
                 from: "schoolnames",
-                localField: "school_details.school_name",
-                foreignField: "schoolName",
+                let: {
+                    localSchoolNameField: '$school_details.school_name',
+                    localCountryField: '$school_details.countryDetails.countryId',
+                    localStateField: '$school_details.stateDetails.stateId',
+                    localCityField: '$school_details.cityDetails.cityId',
+                },
+                pipeline: [
+                    {
+                        $match: {
+                            $expr: {
+                                $and: [
+                                    { $eq: ['$schoolName', '$$localSchoolNameField'] },
+                                    { $eq: ['$country', '$$localCountryField'] },
+                                    { $eq: ['$state', '$$localStateField'] },
+                                    { $eq: ['$city', '$$localCityField'] },
+                                ]
+                            }
+                        }
+                    }
+                ],
+                // localField: "school_details.school_name",
+                // foreignField: "schoolName",
                 as: "school_details.school_meta_details",
             },
         },
@@ -833,6 +981,11 @@ const getAgentEnrolledList = async (req, res) => {
                 path: "$school_details.school_meta_details",
             },
         },
+        {
+            $sort: {
+                updatedAt: -1,
+            }
+        }
     ]);
 
     res.json({

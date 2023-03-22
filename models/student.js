@@ -36,7 +36,7 @@ const studentSchema = new Schema({
     agent_id: {
         type: ObjectId,
         ref: "agent",
-        default: null
+        default: null,
     },
     emailVerified: {
         type: String,

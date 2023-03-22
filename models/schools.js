@@ -100,7 +100,10 @@ const schoolSchema = new Schema({
                 // required: [true, "Program Description is required"],
             },
             duration: {
-                type: String,
+                type: Number,
+            },
+            duration_sem_per_year: {
+                type: Number,
             },
             grade_score: {
                 type: Number,
@@ -191,7 +194,7 @@ const schoolSchema = new Schema({
             },
 
             acceptable_band: {
-                type: Types.Decimal128,
+                type: Number,
                 description: "Acceptable band must be of Number type"
             },
             module: {

@@ -7,6 +7,7 @@ const checkAuth = (req, res, next) => {
             process.env.JWT_SECRET_KEY
         );
         console.log({ decodedToken })
+        decodedToken.token = token;
         req.userData = decodedToken;
         next();
     } catch (error) {

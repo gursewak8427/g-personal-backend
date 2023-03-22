@@ -10,10 +10,17 @@ const countrySchema = new Schema({
     countryName: {
         type: String,
     },
-    countrySortName: {
+    countrySortName: { // this is countryId while adding new currency details
         type: String,
     },
     countryLogo: {
+        type: String,
+    },
+    countryCode: { // this is currency code
+        type: String,
+        default: ""
+    },
+    plusPrice: {
         type: String,
     },
 });

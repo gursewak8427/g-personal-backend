@@ -34,7 +34,8 @@ router.post("/register", agentRegister);
 router.get("/getprofile", checkAuth, agentGetProfile);
 router.post("/verifyToken", checkAuth, agentVerifyToken);
 router.post("/update", checkAuth, upload.fields([{ name: "business_certificate_file" }, { name: "company_logo_file" }]), agentUpdateProfile);
-router.post("/addstudent", checkAuth, agentAddStudent);
+router.post("/addstudent", checkAuth, agentAddStudent); // register student
+router.post("/register_enroll", checkAuth, agentAddStudent); // register and enroll student
 router.post("/getstudents", checkAuth, agentGetStudents);
 router.post("/getnotifications", checkAuth, getNotifications);
 
