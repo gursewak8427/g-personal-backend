@@ -9,22 +9,41 @@ connectDb();
 const fs = require("fs");
 const csv = require("csvtojson");
 // New for Socket.io
-const http = require("http");
+var https = require('https');
+var http = require('http');
 const { v4: uuidv4 } = require("uuid");
 const Constants = require("./helper/constants");
 const SchoolModel = require("./models/schools");
 const SchoolNamesModel = require("./models/schoolNames");
 
+// var env = process.env.NODE_ENV || 'development';
+
+let protocols = ["HTTPS", "HTTP"]
+var env = protocols[1]
+
 // app.listen(3006, () => console.log("Server Start"))
-const server = http.createServer(app);
+if (env == "HTTP") {
+  var server = http.createServer(app);
+} else {
+  var options = {
+    key: fs.readFileSync('./privkey.pem'),
+    cert: fs.readFileSync('./cert.pem'),
+    ca: fs.readFileSync('./chain.pem'),
+  }
+  var server = https.createServer(options, app);
+}
 
 const io = require("socket.io")(server, {
   cors: {
-    origin: ["http://localhost:3000", "https://learn-global.onrender.com"],
+    origin: ["http://localhost:3000", "https://learnglobal.co.in", "https://learn-global.onrender.com"],
   },
 });
 
 module.exports = { io };
+
+// app.get('/socket.io', (req, res) => {
+//   res.sendFile(__dirname + '/node_modules/socket.io/client-dist/socket.io.js');
+// });
 
 io.on("connection", (socket) => {
   socket.emit("Connected", { socketId: socket.id });

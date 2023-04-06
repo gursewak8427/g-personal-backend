@@ -23,6 +23,14 @@ const countrySchema = new Schema({
     plusPrice: {
         type: String,
     },
+    countryDescription: {
+        type: String,
+        default: ""
+    },
+    countryVideo: {
+        type: String,
+        default: ""
+    },
 });
 
 // Compile model from schema

@@ -6,17 +6,19 @@ const AgentModel = require("../models/agent");
 const CountryModel = require("../models/country");
 const StateModel = require("../models/state");
 const CityModel = require("../models/city");
+const DocsRequiredModel = require("../models/docsRequired")
 
 const SchoolNamesModel = require("../models/schoolNames");
 const AssessmentForm = require("../models/assessmentForm");
 const QueriesForm = require("../models/queriesform");
 
+const moment = require('moment');
 const Constants = require("../helper/constants");
 const { sendCustomEmail } = require("../helper/sendCustomEmail");
 const { io } = require("../app");
 const fs = require("fs");
 const csv = require("csvtojson");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { ObjectId, ObjectID } = require("bson");
 const { trim } = require("lodash");
@@ -33,8 +35,8 @@ const appendNotification = async (model, users, msg, url, body = "") => {
   await model.updateMany(
     model == AdminModel
       ? {
-          role: { $in: users },
-        }
+        role: { $in: users },
+      }
       : {},
     {
       $push: {
@@ -109,7 +111,7 @@ const verifyToken = async (req, res) => {
 
 const adminLogin = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, mooment } = req.body;
     console.log(req.body);
     let admin = await AdminModel.findOne({ email });
     if (!admin) {
@@ -153,7 +155,7 @@ const adminLogin = async (req, res) => {
             role: admin.role,
           };
 
-          const token2 = jwt.sign(data, jwtSecretKey2, { expiresIn: "30d" });
+          const token2 = jwt.sign(data, jwtSecretKey2, { expiresIn: '1d' });
 
           res.json({
             status: 1,
@@ -198,21 +200,28 @@ const adminLogin = async (req, res) => {
         await admin.save();
 
         // generate jwt token
-        let jwtSecretKey2 = process.env.JWT_SECRET_KEY;
         let data2 = {
-          time: Date(),
+          // time: Date(),
           userId: admin._id,
           email: admin.email,
         };
 
-        const token2 = jwt.sign(data2, jwtSecretKey, { expiresIn: "30d" });
+
+        const token3 = jwt.sign(
+          {
+            data: data2,
+            exp: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60), // set the expiration time to 30 days from now
+          }, jwtSecretKey);
+
+
+        console.log({ token323232: token3 })
 
         res.json({
           status: 1,
           message: "Verification Code send successfully",
           details: {
             mode: "2FA",
-            token: token2,
+            token: token3,
           },
         });
       });
@@ -501,9 +510,8 @@ const toggleStatus = async (req, res) => {
     } else {
       let agentdata = await AgentModel.findByIdAndUpdate(agentId, { status });
       await agentdata.save();
-      let msg = `Your Id is ${
-        status == "APPROVED" ? "approved" : "rejected"
-      } as Agent`;
+      let msg = `Your Id is ${status == "APPROVED" ? "approved" : "rejected"
+        } as Agent`;
       let url = "/d/agent/profile";
       await appendNotification(AgentModel, [], msg, url);
     }
@@ -788,7 +796,7 @@ const getSchools = async (req, res) => {
     if (host === "localhost") {
       var fullUrl = `${protocol}://${host}:${port}`;
     } else {
-      var fullUrl = `${protocol}://${host}`;
+      var fullUrl = `${protocol}://${host}:${port}`;
     }
     // const fullUrl = `${protocol}://${host}`
 
@@ -1210,6 +1218,8 @@ const getSchools = async (req, res) => {
 
 const getSchoolsPrograms = async (req, res) => {
   try {
+    let perPage = 10;
+    let { currentPage } = req.body;
     const protocol = req.protocol;
     const host = req.hostname;
     const url = req.originalUrl;
@@ -1218,7 +1228,7 @@ const getSchoolsPrograms = async (req, res) => {
     if (host == "localhost") {
       var fullUrl = `${protocol}://${host}:${port}`;
     } else {
-      var fullUrl = `${protocol}://${host}`;
+      var fullUrl = `${protocol}://${host}:${port}`;
     }
     // const fullUrl = `${protocol}://${host}`
 
@@ -1643,6 +1653,7 @@ const getSchoolsPrograms = async (req, res) => {
 
     // console.log({ q1, q2: q2[0]["$or"] });
 
+    // Without pagination and without grouping the data
     var totalData = await SchoolModel.aggregate([
       {
         $match: q1.length != 0 ? { $and: q1 } : {},
@@ -1654,6 +1665,26 @@ const getSchoolsPrograms = async (req, res) => {
       },
       {
         $match: q2.length != 0 ? { $and: q2 } : {},
+      },
+    ]);
+
+    var my_data = await SchoolModel.aggregate([
+      {
+        $match: q1.length != 0 ? { $and: q1 } : {},
+      },
+      {
+        $unwind: {
+          path: "$school_programs",
+        },
+      },
+      {
+        $match: q2.length != 0 ? { $and: q2 } : {},
+      },
+      {
+        $skip: perPage * (currentPage - 1)
+      },
+      {
+        $limit: perPage
       },
       {
         $group: {
@@ -1719,11 +1750,24 @@ const getSchoolsPrograms = async (req, res) => {
       },
     ]);
 
+    let totalPages = parseFloat(totalData.length / perPage);
+    if (totalData.length % perPage != 0) {
+      totalPages = parseInt(totalPages);
+      totalPages++;
+    }
+
+    console.log({
+      l1: totalData.length,
+      l2: my_data.length,
+      totalPages,
+    })
+
     res.json({
       status: 1,
       message: "School Programs List Find Successfully",
       details: {
-        totalData,
+        totalData: my_data,
+        totalPages
       },
     });
   } catch (error) {
@@ -1810,8 +1854,8 @@ const getschoolnames = async (req, res) => {
     query.length == 0
       ? {}
       : {
-          $and: query,
-        }
+        $and: query,
+      }
   );
   // var states = await StateModel.find()
   // var cities = await CityModel.find()
@@ -2376,8 +2420,8 @@ const findIntakes = async (req, res) => {
         q1.length == 0
           ? {}
           : {
-              $and: q1,
-            },
+            $and: q1,
+          },
     },
   ]);
 
@@ -2515,8 +2559,8 @@ const updateIntakes = async (req, res) => {
           q1.length == 0
             ? {}
             : {
-                $and: q1,
-              },
+              $and: q1,
+            },
       },
     ]);
 
@@ -2664,7 +2708,7 @@ const topcategorydata = async (req, res) => {
   if (host === "localhost") {
     var fullUrl = `${protocol}://${host}:${port}`;
   } else {
-    var fullUrl = `${protocol}://${host}`;
+    var fullUrl = `${protocol}://${host}:${port}`;
   }
 
   var schools = await SchoolModel.aggregate([
@@ -2871,17 +2915,60 @@ const getEnrollPrograms = async (req, res) => {
   if (host === "localhost") {
     var fullUrl = `${protocol}://${host}:${port}`;
   } else {
-    var fullUrl = `${protocol}://${host}`;
+    var fullUrl = `${protocol}://${host}:${port}`;
   }
 
+
+
+  var forInProcessing = [
+    "IN_PROCESSING",
+    "OL_RECEIVED",
+    "TUTION_FEES_PROCESSING",
+    "FILE_LODGED",
+    "FILE_LODGED_DOCS_PROCESSING",
+    "VISA_AWAITED",
+  ]
+
+  var forClosed = [
+    "VISA_APPROVED",
+  ]
+
+  var forDocRejectedFiles = [
+    "OL_REJECTED",
+    "DOCUMENTS_REJECT",
+    "TUTION_FEES_REJECTED",
+    "FILE_LODGED_DOCS_REJECTED",
+  ]
+
+  var forPermanentRejectedFiles = [
+    "VISA_REJECTED",
+  ]
+
+  var forPendingFiles = [
+    "FEES_AND_DOC_PENDING",
+    "FEES_PENDING",
+    "DOCUMENTS_PENDING",
+  ]
+
+  console.log({ type })
   // get enrolledList details
   let enrolledList = await EnrollModel.aggregate([
     {
       $match:
         type != "ALL"
-          ? {
-              enroll_status: type,
-            }
+          ? type == "PENDING" ? {
+            enroll_status: { $in: forPendingFiles },
+          } : type == "IN_PROCESSING" ? {
+            enroll_status: { $in: forInProcessing },
+          } : type == "DOC_REJECTED" ? {
+            enroll_status: { $in: forDocRejectedFiles },
+          } : type == "PERMANENT_REJECTED" ? {
+            enroll_status: { $in: forPermanentRejectedFiles },
+          } : type == "CLOSED" ? {
+            enroll_status: { $in: forClosed },
+          } : {
+            enroll_status: type,
+          }
           : {},
     },
     {
@@ -3030,7 +3117,7 @@ const getEnrollPrograms = async (req, res) => {
     message: "Enrolled Programs details found",
     details: {
       files: enrolledList,
-      baseUrl: fullUrl + "/uploads/student/",
+      baseUrl: fullUrl + "/uploads/agent/",
     },
   });
 };
@@ -3052,9 +3139,6 @@ const updateEnrollStatus = async (req, res) => {
 
     const { userId, role } = req.userData;
     var userRole = role;
-    if (!role) {
-      userRole = "AGENT";
-    }
     if (status == "FEES_PENDING") {
       await appendFileHistory({
         fileId,
@@ -3092,6 +3176,61 @@ const updateEnrollStatus = async (req, res) => {
     });
   }
 };
+const updateStudentRemark = async (req, res) => {
+  try {
+    const { fileId, status } = req.body;
+    let file = await EnrollModel.findOne({ _id: ObjectId(fileId) });
+    if (!file) {
+      res.json({
+        status: "0",
+        message: "File Not Found",
+        details: {
+          error: "File Not Found",
+        },
+      });
+      return;
+    }
+
+    // const { userId, role } = req.userData;
+    // var userRole = role;
+    // if (status == "FEES_PENDING") {
+    //   await appendFileHistory({
+    //     fileId,
+    //     userId,
+    //     userRole,
+    //     content: "File Approved, Pay fees for further Processing",
+    //   });
+    // }
+    // if (status == "CLOSED") {
+    //   await appendFileHistory({
+    //     fileId,
+    //     userId,
+    //     userRole,
+    //     content: "Your file was closed",
+    //   });
+    // }
+
+    file.student_remark = status;
+    await file.save();
+    res.json({
+      status: "1",
+      message: "Status Updated",
+      details: {
+        status: status,
+      },
+    });
+  } catch (err) {
+    console.log(err);
+    res.json({
+      status: "0",
+      message: "Server Error",
+      details: {
+        error: err.message,
+      },
+    });
+  }
+};
+
 
 const sendRemark = async (req, res) => {
   try {
@@ -3239,7 +3378,7 @@ const forgotPassword = async (req, res) => {
     if (host === "localhost") {
       var fullUrl = `${protocol}://${host}:${port}`;
     } else {
-      var fullUrl = `${protocol}://${host}`;
+      var fullUrl = `${protocol}://${host}:${port}`;
     }
 
     // generate jwt token
@@ -3253,7 +3392,7 @@ const forgotPassword = async (req, res) => {
 
     const token = jwt.sign(data, jwtSecretKey);
 
-    let ENDPOINT = "https://learn-global.onrender.com";
+    let ENDPOINT = "https://learnglobal.co.in";
     // let ENDPOINT = "http://localhost:3006";
 
     await sendForgotPasswordEmail(
@@ -3420,6 +3559,52 @@ const deleteCurrency = async (req, res) => {
   }
 };
 
+
+const getUniqueCountries = async (req, res) => {
+  let uniqueCountries = await SchoolNamesModel.find().distinct("country")
+  let arr = []
+  console.log({ uniqueCountries })
+  for (let index = 0; index < uniqueCountries.length; index++) {
+    const uniqueCountry = uniqueCountries[index];
+    let response = await CountryModel.find({ countryId: uniqueCountry })
+    if (response) {
+      if (response.length == 0) continue;
+      const docs = await DocsRequiredModel.findOne({ countryName: response[0]?.countryName.toLowerCase() })
+      const docs2 = await EmbacyDocsModel.findOne({ countryName: response[0]?.countryName.toLowerCase() })
+      var data = { ...response[0]._doc, "documents": docs ? docs.docsRequired : [], "embassyDocuments": docs2 ? docs2.docsRequired : [] }
+      arr.push(data)
+    }
+  }
+  res.json({
+    status: "1",
+    message: "Unique Countries Found",
+    details: {
+      countries: arr
+    }
+  })
+}
+
+
+const updateEmbassyDocument = async (req, res) => {
+  const { status, reason, fileId, index } = req.body;
+
+  let fileData = await EnrollModel.findOne({ _id: fileId })
+  fileData.embassy_docs[index].document_status = status == "0" ? "UN_APPROVED" : "APPROVED"
+
+  if (status == "0") {
+    fileData.enroll_status = "FILE_LODGED_DOCS_REJECTED"
+  }
+
+  console.log({ reason })
+
+  await fileData.save();
+
+  res.json({
+    status: "0",
+    message: "Document Status Change"
+  })
+}
+
 module.exports = {
   // ******* 14 March, 2023 ********
   getProfile,
@@ -3472,9 +3657,12 @@ module.exports = {
   getDashboardCounts,
   getEnrollPrograms,
   updateEnrollStatus,
+  updateStudentRemark,
   sendRemark,
 
   addCurrency,
   getCurrency,
   deleteCurrency,
+  getUniqueCountries,
+  updateEmbassyDocument,
 };

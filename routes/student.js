@@ -1,7 +1,7 @@
 const router = require("express").Router();
 const multer = require("multer");
 const { getAssessmentForms } = require("../controller/admin.controller");
-const { createOrder, studentLogin, getHistory, studentRegister, studentConfirmEmail, resendEmail, getEmailVerification, studentSearch, enrollProgram, studentGoogleLogin, getEnrollPrograms, uploadDocument, getDocuments, studentUpdate, studentProfile, fillAssessmentForm, fillsearchqueries, forgotPassword, setNewPassword, submitAllDocs, testNotification, verifyToken, approveProfile, getNotifications, setRemark, getRemarks, handlePayment, landingPage } = require("../controller/student.controller");
+const { createOrder, studentLogin, getHistory, studentRegister, studentConfirmEmail, resendEmail, getEmailVerification, studentSearch, enrollProgram, studentGoogleLogin, getEnrollPrograms, uploadDocument, getDocuments, studentUpdate, studentProfile, fillAssessmentForm, fillsearchqueries, forgotPassword, setNewPassword, submitAllDocs, testNotification, verifyToken, approveProfile, getNotifications, setRemark, getRemarks, handlePayment, landingPage, specifiCountry, specificSchool, discoverSchool, uploadSwiftFile, getEmbacyDocs, uploadEmbacyDocument, submitAllEmbassyDocs, getFileDetails } = require("../controller/student.controller");
 const checkAuth = require("../helper/checkAuth");
 
 // const multer = require("multer");
@@ -40,11 +40,13 @@ router.post("/fillsearchqueries", fillsearchqueries)
 router.post("/submitAllDocs", checkAuth, submitAllDocs)
 router.post("/approveProfile", checkAuth, approveProfile)
 router.post("/getNotifications", checkAuth, getNotifications)
-router.post("/getHistory", checkAuth, getHistory)
+
+// router.post("/getHistory", checkAuth, getHistory) // DELETED
 router.post("/handlePayment", handlePayment)
 
-router.post("/setRemark", checkAuth, setRemark)
-router.post("/getRemarks", checkAuth, getRemarks)
+// router.post("/setRemark", checkAuth, setRemark) // DELETED
+router.post("/getRemarks", getRemarks)
+router.post("/getFileDetails", getFileDetails)
 
 
 router.post("/testNotification", testNotification)
@@ -52,5 +54,14 @@ router.post("/testNotification", testNotification)
 router.post("/createOrder", createOrder)
 
 router.get("/landingPage", landingPage)
+router.get("/specifiCountry/:countryId", specifiCountry)
+router.get("/specificSchool/:schoolId", specificSchool)
+router.get("/discoverSchool/:searchQuery", discoverSchool)
+
+router.post("/uploadTutionFeesReceipt", upload.single("UploadTutionFeesReceipt"), uploadSwiftFile)
+
+router.post("/getEmbacyDocs", getEmbacyDocs)
+router.post("/uploadembacydocument",  upload.single("document"), uploadEmbacyDocument)
+router.post("/submitEmbassyDocsAll", checkAuth, submitAllEmbassyDocs)
 
 module.exports = router;

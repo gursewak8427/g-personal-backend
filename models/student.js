@@ -67,7 +67,7 @@ const studentSchema = new Schema({
             document_status: {
                 type: String,
                 default: "UNDER_VERIFICATION",
-                enum: ["APPROVED", "UN_APPROVED", "UNDER_VERIFICATION"]
+                enum: ["APPROVED", "UN_APPROVED", "UNDER_VERIFICATION", "PENDING"]
             }
         }
     ],
@@ -91,42 +91,6 @@ const studentSchema = new Schema({
         type: String,
         default: ""
     },
-    remarks: [
-        {
-            text: {
-                type: String,
-                default: ""
-            },
-            created: {
-                type: Date,
-                default: Date.now()
-            },
-            user_details: Object
-        }
-    ],
-    history: [
-        {
-            text: {
-                type: String,
-                default: ""
-            },
-            created: {
-                type: Date,
-                default: Date.now()
-            },
-            action_created_by_user_id: {
-                type: String, // ["users", "admins"]
-                default: ""
-            },
-            action_created_by_user_role: {
-                type: String,
-                enum: [
-                    "ADMIN", "EMPLOYEE", "AGENT", "STUDENT"
-                ],
-                required: [true, "User role are required"]
-            }
-        }
-    ],
     highestEducation: String,
     gradeScore: String,
     examType: String,

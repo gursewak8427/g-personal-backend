@@ -5,7 +5,13 @@ const docsRequiredSchema = new Schema({
         type: String,
     },
     docsRequired: {
-        type: [String],
+        type: [{
+            title: String,
+            isRequired: {
+                type: Boolean,
+                default: true,
+            },
+        }],
     },
 }, {
     timestamps: true

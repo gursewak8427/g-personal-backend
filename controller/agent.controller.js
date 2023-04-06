@@ -3,7 +3,7 @@ const AdminModel = require("../models/admin")
 const StudentModel = require("../models/student")
 const { sendEmail } = require("../helper/sendEmail")
 const fs = require('fs');
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const saltRounds = 10
 var generatorPassword = require('generate-password');
@@ -80,7 +80,7 @@ const appendNotification = async (
 const testNotification = async (req, res) => {
     let userId = req.body.userId;
     let msg = "Test Notification";
-    let url = "https://learn-global.onrender.com/d/student";
+    let url = "https://learnglobal.co.in/d/student";
     await appendNotification(StudentModel, [], msg, url, "", userId);
     res.json({ success: "1", message: "Test Notification Send" });
 };
@@ -431,7 +431,8 @@ const agentAddStudent = async (req, res) => {
 
                 // find Student
                 const CONFIG = { headers: { "Authorization": `Bearer ${req.userData.token}` } }
-                let ENDPOINT = "http://localhost:3006/student/enroll"
+                // let ENDPOINT = "http://localhost:3006/student/enroll"
+                let ENDPOINT = "https://learn-global-backend.onrender.com/student/enroll"
                 const response = await axios.post(ENDPOINT, {
                     "student_id": studentId,
                     "school_id": schoolId,
@@ -492,7 +493,7 @@ const agentAddStudent = async (req, res) => {
             }
 
             const token = jwt.sign(data, process.env.JWT_SECRET_KEY);
-            let ENDPOINT = "https://learn-global.onrender.com";
+            let ENDPOINT = "https://learnglobal.co.in";
             // let ENDPOINT = "http://localhost:3000";
 
             sendConfirmationEmail(student.firstName, student.email, token, ENDPOINT + "/d/student");
@@ -523,7 +524,9 @@ const agentAddStudent = async (req, res) => {
 
                 // find Student
                 const CONFIG = { headers: { "Authorization": `Bearer ${req.userData.token}` } }
-                let ENDPOINT = "http://localhost:3006/student/enroll"
+                // let ENDPOINT = "http://localhost:3006/student/enroll"
+                let ENDPOINT = "https://learn-global-backend.onrender.com/student/enroll"
+
                 const response = await axios.post(ENDPOINT, {
                     "student_id": studentId,
                     "school_id": schoolId,
@@ -588,6 +591,182 @@ const agentGetStudents = async (req, res) => {
             status: "1",
             message: "Students Fetch Successfully",
             details: { students, totalPages, currentPage }
+        })
+
+
+    } catch (error) {
+        console.log(error)
+        res.json({
+            status: "0",
+            message: "Server Error Occured",
+            details: { error }
+        })
+    }
+}
+
+const agentGetStudentProfile = async (req, res) => {
+    try {
+        const data = req.body
+        const { userId } = req.userData
+        const { student_id } = req.body
+
+        console.log({ userId })
+
+        // pagination variables
+        let perPage = 5;
+        let totalPages = 0;
+        let currentPage = data.currentPage;
+
+        let student = await StudentModel.findOne({ _id: ObjectId(student_id) })
+        if(!student){
+            res.json({
+                status: "0",
+                message: "Student Not Found"
+            })
+            return;
+        }
+        if (student?.agent_id?.toString() != userId) {
+            res.json({
+                status: "0",
+                message: "Student is not registered by this agent"
+            })
+            return;
+        }
+
+        // get Student Enrolled Programs
+        let enrolledList = await EnrollModel.aggregate([
+            {
+                $match: {
+                    student_id: ObjectId(student_id),
+                },
+            },
+            {
+                $lookup: {
+                    from: "schools",
+                    localField: "school_id",
+                    foreignField: "_id",
+                    as: "school_details",
+                },
+            },
+            {
+                $unwind: {
+                    path: "$school_details",
+                },
+            },
+            {
+                $unwind: {
+                    path: "$school_details.school_programs",
+                },
+            },
+            {
+                $match: {
+                    $expr: {
+                        $eq: ["$school_details.school_programs.program_id", "$program_id"],
+                    },
+                },
+            },
+            {
+                $lookup: {
+                    from: "countries",
+                    localField: "school_details.country",
+                    foreignField: "countryName",
+                    as: "school_details.countryDetails"
+                }
+            },
+            {
+                $unwind: {
+                    path: "$school_details.countryDetails",
+                }
+            },
+            {
+                $lookup: {
+                    from: "states",
+                    let: {
+                        stateName: "$school_details.state",
+                        countryId: "$school_details.countryDetails.countryId",
+                    },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $eq: ['$stateName', '$$stateName'] },
+                                        { $eq: ['$countryId', '$$countryId'] },
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    as: "school_details.stateDetails"
+                }
+            },
+            {
+                $unwind: "$school_details.stateDetails",
+            },
+            {
+                $lookup: {
+                    from: "cities",
+                    let: {
+                        cityName: "$school_details.city",
+                        stateId: "$school_details.stateDetails.stateId",
+                    },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $eq: ['$cityName', '$$cityName'] },
+                                        { $eq: ['$stateId', '$$stateId'] },
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    as: "school_details.cityDetails"
+                }
+            },
+            {
+                $unwind: "$school_details.cityDetails",
+            },
+            {
+                $lookup: {
+                    from: "schoolnames",
+                    let: {
+                        localSchoolNameField: '$school_details.school_name',
+                        localCountryField: '$school_details.countryDetails.countryId',
+                        localStateField: '$school_details.stateDetails.stateId',
+                        localCityField: '$school_details.cityDetails.cityId',
+                    },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $eq: ['$schoolName', '$$localSchoolNameField'] },
+                                        { $eq: ['$country', '$$localCountryField'] },
+                                        { $eq: ['$state', '$$localStateField'] },
+                                        { $eq: ['$city', '$$localCityField'] },
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    // localField: "school_details.school_name",
+                    // foreignField: "schoolName",
+                    as: "school_details.school_meta_details",
+                },
+            },
+            {
+                $unwind: {
+                    path: "$school_details.school_meta_details",
+                },
+            },
+        ]);
+
+        res.json({
+            status: "1",
+            message: "Students Fetch Successfully",
+            details: { student, enrolledList}
         })
 
 
@@ -839,7 +1018,7 @@ const getAgentEnrolledList = async (req, res) => {
     if (host === "localhost") {
         var fullUrl = `${protocol}://${host}:${port}`;
     } else {
-        var fullUrl = `${protocol}://${host}`;
+        var fullUrl = `${protocol}://${host}:${port}`;
     }
 
     // get enrolledList details
@@ -1008,5 +1187,6 @@ module.exports = {
     agentGetProfile,
     agentVerifyToken,
     agentUpdateProfile,
-    getAgentEnrolledList
+    getAgentEnrolledList,
+    agentGetStudentProfile
 }

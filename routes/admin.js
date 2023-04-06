@@ -51,6 +51,9 @@ const {
   getCurrency,
   deleteCurrency,
   getSingleProgram,
+  getUniqueCountries,
+  updateEmbassyDocument,
+  updateStudentRemark,
 } = require("../controller/admin.controller");
 
 const {
@@ -132,6 +135,8 @@ router.post("/getSingleSchoolDetails", getSingleSchoolDetails); // why
 // enrolls
 router.post("/getEnrollPrograms", getEnrollPrograms);
 router.patch("/updateEnrollStatus", checkAuth, updateEnrollStatus);
+router.patch("/updateStudentRemark", checkAuth, updateStudentRemark);
+
 router.post("/sendRemark", checkAuth, sendRemark);
 
 router.get("/getDashboardCounts", getDashboardCounts);
@@ -149,6 +154,12 @@ router.patch("/updateRequiredDocuments", checkAuth, updateRequiredDocuments);
 
 router.post("/addcurrency", checkAuth, addCurrency);
 router.delete("/deletecurrency/:id", checkAuth, deleteCurrency);
+
 router.get("/getcurrency", getCurrency);
+router.get("/getUniqueCountries", getUniqueCountries);
+
+
+// Embassy document update by admin [Approve or Declined]
+router.patch("/updateEmbassyDocument", checkAuth, updateEmbassyDocument)
 
 module.exports = router;

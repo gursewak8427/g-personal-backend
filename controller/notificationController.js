@@ -3,7 +3,7 @@ const AdminModel = require("../models/admin")
 const StudentModel = require("../models/student")
 const { sendEmail } = require("../helper/sendEmail")
 const fs = require('fs');
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const saltRounds = 10
 var generatorPassword = require('generate-password');
@@ -42,7 +42,7 @@ const sendNotification = async (req, res) => {
                     body: req.body.body,
                 },
                 data: {
-                    url: "https://learn-global.onrender.com/" + req.body.redirectUrl,
+                    url: "https://learnglobal.co.in/" + req.body.redirectUrl,
                 },
                 token: token
             }

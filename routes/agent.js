@@ -27,6 +27,7 @@ const {
     agentGetStudents,
     getNotifications,
     getAgentEnrolledList,
+    agentGetStudentProfile,
 } = require("../controller/agent.controller");
 
 router.post("/login", agentLogin);
@@ -41,5 +42,9 @@ router.post("/getnotifications", checkAuth, getNotifications);
 
 // 14 March, 2023 APIs
 router.get("/getAgentEnrolledList", checkAuth, getAgentEnrolledList);
+
+// 3 Apr, 2023 APIs
+router.post("/agentGetStudentProfile", checkAuth, agentGetStudentProfile);
+
 
 module.exports = router;

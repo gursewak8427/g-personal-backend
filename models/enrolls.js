@@ -13,13 +13,43 @@ const enrollSchema = new Schema({
   program_id: {
     type: String,
   },
+  tution_fees_recepit: {
+    type: String,
+    default: ""
+  },
+  embassy_docs: {
+    type: [{
+      _id: false,
+      document_title: String,
+      document_url: String,
+      document_status: {
+        type: String,
+        default: "UNDER_VERIFICATION",
+        enum: ["APPROVED", "UN_APPROVED", "UNDER_VERIFICATION", "PENDING"]
+      }
+    }],
+    default: []
+  },
   enroll_status: {
     type: String,
     enum: [
-      "PENDING", // until documents are not completed
-      "UNDER_VERIFICATION", // after documents are completed then admin/sub-admin will verify file finally
+      "FEES_AND_DOC_PENDING",
       "FEES_PENDING", // after verification done from admin, then student will able to pay fees
-      "IN_PROCESSING", // After payment file will gone to under_processing
+      "DOCUMENTS_PENDING", // 
+      "UNDER_VERIFICATION", // after documents are completed then admin/sub-admin will verify file finally
+      "DOCUMENTS_REJECT",
+      "IN_PROCESSING", // OL Awaited
+      "OL_RECEIVED", // OL Recieved and wait for tution fees
+      "OL_REJECTED", // CLOSE
+      "TUTION_FEES_PROCESSING", // S
+      "TUTION_FEES_REJECTED", // 
+      "FILE_LODGED", // wait for documents
+      "FILE_LODGED_DOCS_PROCESSING", // 
+      "FILE_LODGED_DOCS_REJECTED", // 
+      "VISA_PROCESSING", // If docs approved then wait for visa
+      "VISA_AWAITED", // If docs approved then wait for visa
+      "VISA_APPROVED", // CLOSE
+      "VISA_REJECTED", // CLOSE
       "CLOSED", // after all process, file will be closed
     ],
   },

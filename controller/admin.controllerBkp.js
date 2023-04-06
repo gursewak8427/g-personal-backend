@@ -6,7 +6,7 @@ const Constants = require("../helper/constants")
 
 const fs = require('fs');
 const csv = require("csvtojson");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const saltRounds = 10
 

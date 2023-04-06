@@ -8,12 +8,13 @@ const SchoolNamesModel = require("../models/schoolNames")
 const AssessmentForm = require("../models/assessmentForm");
 const QueriesForm = require("../models/queriesform");
 const fs = require("fs");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const saltRounds = 10;
 const nodemailer = require("nodemailer");
 const { sendConfirmationEmail } = require("../helper/sendConfirmationEmail");
 const { ObjectId } = require("bson");
+const EmbacyDocsModel = require("../models/embacyDocsRequired")
 
 const { OAuth2Client } = require("google-auth-library");
 const { response } = require("express");
@@ -29,8 +30,8 @@ const client = new OAuth2Client(
 // clientSecret = "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"
 const Razorpay = require('razorpay')
 const razorpay = new Razorpay({
-  key_id: 'rzp_test_jMGvOqaZ2bLIC0',
-  key_secret: 'yMu78w2bLFnarGG1rcDSZPvn'
+  key_id: 'rzp_test_ElUkqLX4SVyVMn',
+  key_secret: '6J0WrAlkAUp3PsbCj94UDg0e'
 })
 
 const appendNotification = async (
@@ -103,35 +104,35 @@ const appendNotification = async (
 const testNotification = async (req, res) => {
   let userId = req.body.userId;
   let msg = "Test Notification";
-  let url = "https://learn-global.onrender.com/d/student";
+  let url = "https://learnglobal.co.in/d/student";
   await appendNotification(StudentModel, [], msg, url, "", userId);
   res.json({ success: "1", message: "Test Notification Send" });
 };
 
-const appendHistory = async (model, userId, userRole, text) => {
-  // get admin token
-  try {
-    let userData = await model.findById(userId);
-    userData.history.push({
-      text: text,
-      created: Date.now(),
-      action_created_by_user_id: userId,
-      action_created_by_user_role: userRole,
-    });
-    await userData.save();
+// const appendHistory = async (model, userId, userRole, text) => {
+//   // get admin token
+//   try {
+//     let userData = await model.findById(userId);
+//     userData.history.push({
+//       text: text,
+//       created: Date.now(),
+//       action_created_by_user_id: userId,
+//       action_created_by_user_role: userRole,
+//     });
+//     await userData.save();
 
-    return { status: "1", message: "History Added Successfully" };
-  } catch (error) {
-    console.log({ error });
-    return {
-      status: "0",
-      message: "History added failed",
-      details: {
-        error: error,
-      },
-    };
-  }
-};
+//     return { status: "1", message: "History Added Successfully" };
+//   } catch (error) {
+//     console.log({ error });
+//     return {
+//       status: "0",
+//       message: "History added failed",
+//       details: {
+//         error: error,
+//       },
+//     };
+//   }
+// };
 
 const verifyToken = async (req, res) => {
   const { userId } = req.userData;
@@ -262,13 +263,13 @@ const studentGoogleLogin = async (req, res) => {
         let url = `/d/admin/studentprofile?id=${student._id}`;
         await appendNotification(AdminModel, [], msg, url);
 
-        let historyResponse = await appendHistory(
-          StudentModel,
-          student._id,
-          "STUDENT",
-          "Registration successful"
-        );
-        console.log({ historyResponse });
+        // let historyResponse = await appendHistory(
+        //   StudentModel,
+        //   student._id,
+        //   "STUDENT",
+        //   "Registration successful"
+        // );
+        // console.log({ historyResponse });
 
         res.json({
           status: "1",
@@ -442,6 +443,7 @@ const studentRegister = async (req, res) => {
         return;
       }
       bcrypt.hash(password, saltRounds, async function (err, hash) {
+        console.log({ thisishash: hash })
         // Store hash in your password DB.
         if (err) {
           res.json({
@@ -500,7 +502,7 @@ const studentRegister = async (req, res) => {
         console.log(data);
 
         const token = jwt.sign(data, jwtSecretKey);
-        let ENDPOINT = "https://learn-global.onrender.com";
+        let ENDPOINT = "https://learnglobal.co.in";
         // let ENDPOINT = "http://localhost:3000";
 
         sendConfirmationEmail(firstName, email, token, ENDPOINT + "/d/student");
@@ -509,13 +511,13 @@ const studentRegister = async (req, res) => {
         let url = `/d/admin/studentprofile?id=${student._id}`;
         await appendNotification(AdminModel, ["ADMIN"], msg, url);
 
-        let historyResponse = await appendHistory(
-          StudentModel,
-          student._id,
-          "STUDENT",
-          "Registration successful"
-        );
-        console.log({ historyResponse });
+        // let historyResponse = await appendHistory(
+        //   StudentModel,
+        //   student._id,
+        //   "STUDENT",
+        //   "Registration successful"
+        // );
+        // console.log({ historyResponse });
 
         res.json({
           status: "1",
@@ -582,7 +584,7 @@ const resendEmail = async (req, res) => {
   };
 
   const token = jwt.sign(data, jwtSecretKey);
-  let ENDPOINT = "https://learn-global.onrender.com";
+  let ENDPOINT = "https://learnglobal.co.in";
   // let ENDPOINT = "http://localhost:3000";
 
   sendConfirmationEmail(
@@ -635,7 +637,7 @@ const studentSearch = async (req, res) => {
   if (host === "localhost") {
     var fullUrl = `${protocol}://${host}:${port}`;
   } else {
-    var fullUrl = `${protocol}://${host}`;
+    var fullUrl = `${protocol}://${host}:${port}`;
   }
 
   var perPage = 10;
@@ -1373,78 +1375,78 @@ const getNotifications = async (req, res) => {
     },
   });
 };
-const getHistory = async (req, res) => {
-  console.log(req.userData);
-  if (req.userData.role == "ADMIN") {
-    var userId = req.query.id;
-    var adminId = req.userData.userId;
-  } else {
-    var { userId } = req.userData;
-  }
+// const getHistory = async (req, res) => {
+//   console.log(req.userData);
+//   if (req.userData.role == "ADMIN") {
+//     var userId = req.query.id;
+//     var adminId = req.userData.userId;
+//   } else {
+//     var { userId } = req.userData;
+//   }
 
-  const studentdata = await StudentModel.findById(userId);
+//   const studentdata = await StudentModel.findById(userId);
 
-  if (!studentdata) {
-    res.json({ status: "0", message: "Student not found" });
-    return;
-  }
+//   if (!studentdata) {
+//     res.json({ status: "0", message: "Student not found" });
+//     return;
+//   }
 
-  // const studentdata = await StudentModel.aggregate([
-  //     {
-  //         $match: {
-  //             _id: ObjectId(userId)
-  //         }
-  //     },
-  //     {
-  //         $lookup: {
-  //             from: "students",
-  //             localField: "action_created_by_user_id",
-  //             foreignField: "_id",
-  //             as: "user"
-  //         }
-  //     },
-  //     {
-  //         $addFields: {
-  //             user: {
-  //                 $cond: {
-  //                     if: { $eq: ["$action_created_by_user_role", "STUDENT"] },
-  //                     then: { $arrayElemAt: ["$user", 0] },
-  //                     else: null
-  //                 }
-  //             }
-  //         }
-  //     },
-  //     {
-  //         $lookup: {
-  //             from: "admins",
-  //             localField: "action_created_by_user_id",
-  //             foreignField: "_id",
-  //             as: "admin"
-  //         }
-  //     },
-  //     {
-  //         $addFields: {
-  //             user: {
-  //                 $cond: {
-  //                     if: { $eq: ["$action_created_by_user_role", "ADMIN"] },
-  //                     then: { $arrayElemAt: ["$admin", 0] },
-  //                     else: "$user"
-  //                 }
-  //             }
-  //         }
-  //     },
-  // ])
+//   // const studentdata = await StudentModel.aggregate([
+//   //     {
+//   //         $match: {
+//   //             _id: ObjectId(userId)
+//   //         }
+//   //     },
+//   //     {
+//   //         $lookup: {
+//   //             from: "students",
+//   //             localField: "action_created_by_user_id",
+//   //             foreignField: "_id",
+//   //             as: "user"
+//   //         }
+//   //     },
+//   //     {
+//   //         $addFields: {
+//   //             user: {
+//   //                 $cond: {
+//   //                     if: { $eq: ["$action_created_by_user_role", "STUDENT"] },
+//   //                     then: { $arrayElemAt: ["$user", 0] },
+//   //                     else: null
+//   //                 }
+//   //             }
+//   //         }
+//   //     },
+//   //     {
+//   //         $lookup: {
+//   //             from: "admins",
+//   //             localField: "action_created_by_user_id",
+//   //             foreignField: "_id",
+//   //             as: "admin"
+//   //         }
+//   //     },
+//   //     {
+//   //         $addFields: {
+//   //             user: {
+//   //                 $cond: {
+//   //                     if: { $eq: ["$action_created_by_user_role", "ADMIN"] },
+//   //                     then: { $arrayElemAt: ["$admin", 0] },
+//   //                     else: "$user"
+//   //                 }
+//   //             }
+//   //         }
+//   //     },
+//   // ])
 
-  // let historyArr = studentdata.history
+//   // let historyArr = studentdata.history
 
-  res.json({
-    status: "1",
-    message: "History get successfully",
-    details: {
-      history: studentdata.history.reverse(),
-    },
-  });
-};
+//   res.json({
+//     status: "1",
+//     message: "History get successfully",
+//     details: {
+//       history: studentdata.history.reverse(),
+//     },
+//   });
+// };
 
 const enrollProgram = async (req, res) => {
   console.log({ body: req.body })
@@ -1608,7 +1610,8 @@ const enrollProgram = async (req, res) => {
     student_id: ObjectId(student_id),
     school_id: ObjectId(school_id),
     program_id: program_id,
-    enroll_status: "PENDING",
+    enroll_status: "FEES_AND_DOC_PENDING",
+    student_remark: "PENDING",
     fileId: "LG" + (10000 + (totalEnrolls + 1)),
     agentId: ObjectId(agent_id) || null
   });
@@ -1657,17 +1660,21 @@ const enrollProgram = async (req, res) => {
           document_url: "",
           document_status: "PENDING",
         });
-        required = true;
+        if (doc.document_isRequired == true) {
+          required = true;
+        }
       }
     }
+
     // final docs found successfully in "finalDocs"
-    console.log({ finalDocs });
-    console.log({ required, underVerification });
-    if (required || underVerification) {
-      newEnroll.enroll_status = "PENDING";
-    } else {
-      newEnroll.enroll_status = "UNDER_VERIFICATION";
-    }
+    // console.log({ finalDocs });
+    // console.log({ required, underVerification });
+    // if (required || underVerification) {
+    //   newEnroll.enroll_status = "PENDING";
+    // } else {
+    //   newEnroll.enroll_status = "UNDER_VERIFICATION";
+    // }
+
     await newEnroll.save();
 
     let msg =
@@ -1682,7 +1689,7 @@ const enrollProgram = async (req, res) => {
       program[0].program_details.program_name +
       " Enrolled Successfully";
     let userRole = "STUDENT";
-    await appendHistory(StudentModel, student_id, userRole, text);
+    // await appendHistory(StudentModel, student_id, userRole, text);
 
     let content =
       "Program " +
@@ -1719,7 +1726,7 @@ const getEnrollPrograms = async (req, res) => {
   if (host === "localhost") {
     var fullUrl = `${protocol}://${host}:${port}`;
   } else {
-    var fullUrl = `${protocol}://${host}`;
+    var fullUrl = `${protocol}://${host}:${port}`;
   }
 
   // get enrolledList details
@@ -1880,7 +1887,7 @@ const getEnrollPrograms = async (req, res) => {
     let find = false;
     for (let i = 0; i < studentDetails.documents.length; i++) {
       if (doc == studentDetails.documents[i].document_title) {
-        if (studentDetails.documents[i].document_status == "UN_APPROVED") {
+        if (studentDetails.documents[i].document_status == "UN_APPROVED" && studentDetails.documents[i].document_isRequired == true) {
           required = true;
         }
         if (
@@ -1899,11 +1906,14 @@ const getEnrollPrograms = async (req, res) => {
     if (!find) {
       // required
       finalDocs.push({
-        document_title: doc,
+        document_title: doc.title,
         document_url: "",
         document_status: "PENDING",
+        document_isRequired: doc.document_isRequired
       });
-      required = true;
+      if (doc.document_isRequired == true) {
+        required = true;
+      }
     }
   }
   // final docs found successfully in "finalDocs"
@@ -1914,6 +1924,7 @@ const getEnrollPrograms = async (req, res) => {
     details: {
       enrolled_list: enrolledList,
       baseUrl: fullUrl + "/uploads/agent/",
+      baseUrlStudent: fullUrl + "/uploads/student/",
       student: studentDetails,
       documents: finalDocs,
       isDocsRequired: required,
@@ -1947,7 +1958,7 @@ const uploadDocument = async (req, res) => {
         await student.save();
 
         let userRole = "STUDENT";
-        await appendHistory(StudentModel, userId, userRole, text);
+        // await appendHistory(StudentModel, userId, userRole, text);
 
         res.json({
           status: "1",
@@ -1973,7 +1984,7 @@ const uploadDocument = async (req, res) => {
       await student.save();
 
       let userRole = "STUDENT";
-      await appendHistory(StudentModel, userId, userRole, text);
+      // await appendHistory(StudentModel, userId, userRole, text);
 
       res.json({
         status: "1",
@@ -2000,51 +2011,65 @@ const uploadDocument = async (req, res) => {
 };
 
 const submitAllDocs = async (req, res) => {
-  if (req.userData.role == "AGENT") {
-    var userId = req.body.student_id;
-  } else {
-    var { userId } = req.userData;
-  }
-
-
-  var student = await StudentModel.findOne({ _id: userId });
-  student.status = "IN_PROCESS";
-
-  var enrolledList = await EnrollModel.updateMany({ student_id: userId }, {
-    $set: {
-      enroll_status: "UNDER_VERIFICATION",
+  try {
+    const { fileId } = req.body;
+    if (req.userData.role == "AGENT") {
+      var userId = req.body.student_id;
+    } else {
+      var { userId } = req.userData;
     }
-  });
 
 
-  await student.save();
-  let msg = "Documents uploaded by the user " + student.email;
-  let url = `/d/admin/studentprofile?id=${userId}&tab=documents`;
-  await appendNotification(AdminModel, ["ADMIN"], msg, url); // last parameter body is optionally
+    var student = await StudentModel.findOne({ _id: userId });
+    let enrollFile = await EnrollModel.findOne({ _id: fileId })
+    if (enrollFile.enroll_status == "UNDER_VERIFICATION" && student.status != "DOC_REJECTED") {
+      res.json({
+        status: "0",
+        message: "Documents already submit"
+      })
+      return;
+    }
 
-  let text = "Submit All Documents";
-  let userRole = "STUDENT";
-  await appendHistory(StudentModel, userId, userRole, text);
+    student.status = "IN_PROCESS";
 
-  res.json({ status: "1", message: "All Documents Submitted Successfully" });
+    var status;
+    if (enrollFile.enroll_status == "FEES_AND_DOC_PENDING") {
+      status = "FEES_PENDING"
+    } else {
+      status = "UNDER_VERIFICATION"
+    }
+
+    var enrolledList = await EnrollModel.updateOne({ _id: fileId }, {
+      $set: {
+        enroll_status: status,
+      }
+    });
+
+
+
+    await student.save();
+    let msg = "Documents uploaded by the user " + student.email;
+    let url = `/d/admin/studentprofile?id=${userId}&tab=documents`;
+    await appendNotification(AdminModel, ["ADMIN"], msg, url); // last parameter body is optionally
+
+    let text = "Submit All Documents";
+    let userRole = "STUDENT";
+    // await appendHistory(StudentModel, userId, userRole, text);
+
+    res.json({ status: "1", message: "All Documents Submitted Successfully" });
+  } catch (error) {
+    res.json({
+      status: "0",
+      message: "Something went wrong"
+    })
+  }
 };
 
 const getDocuments = async (req, res) => {
-  console.log(req.userData)
-  try {
-    if (req?.userData?.role == "AGENT") {
-      if (!req?.body?.student_id) {
-        res.json({
-          status: "0",
-          message: "student_id is required"
-        })
-        return;
-      }
-      var student_id = req.body.student_id;
-    } else {
-      var student_id = req.userData.userId;
-    }
+  console.log(req.body)
+  const { fileId } = req.body;
 
+  try {
     const protocol = req.protocol;
     const host = req.hostname;
     const url = req.originalUrl;
@@ -2053,7 +2078,7 @@ const getDocuments = async (req, res) => {
     if (host === "localhost") {
       var fullUrl = `${protocol}://${host}:${port}`;
     } else {
-      var fullUrl = `${protocol}://${host}`;
+      var fullUrl = `${protocol}://${host}:${port}`;
     }
 
 
@@ -2061,7 +2086,7 @@ const getDocuments = async (req, res) => {
     let enrolledList = await EnrollModel.aggregate([
       {
         $match: {
-          student_id: ObjectId(student_id),
+          _id: ObjectId(fileId),
         },
       },
       {
@@ -2080,27 +2105,39 @@ const getDocuments = async (req, res) => {
       {
         $project: {
           _id: 1,
+          enroll_status: 1,
+          student_id: 1,
           "school_details.school_name": 1,
           "school_details.country": 1,
         },
       },
     ]);
 
-    let studentDetails = await StudentModel.findById(student_id);
+    if (enrolledList.length == 0) {
+      res.json({
+        status: "0",
+        message: "File not found"
+      })
+      return;
+    }
 
-    let allDocs = [];
-    // get Required Documents
-    for (let i = 0; i < enrolledList.length; i++) {
-      try {
-        var doc = await DocsRequiredModel.findOne({
-          countryName: enrolledList[i].school_details.country.toLowerCase(),
-        });
-        console.log({ doc });
-      } catch (error) {
-        console.log({ error });
-        continue;
-      }
-      allDocs = [...allDocs, ...doc.docsRequired];
+
+    let studentDetails = await StudentModel.findById(enrolledList[0].student_id);
+    console.log({ studentDetails })
+    if (!studentDetails) {
+      res.json({
+        status: "0",
+        message: "Student Not Found"
+      })
+      return;
+    }
+
+    var allDocs = [];
+    var doc = await DocsRequiredModel.findOne({
+      countryName: enrolledList[0].school_details.country.toLowerCase(),
+    });
+    if (doc) {
+      allDocs = doc.docsRequired
     }
 
     // remove dublicate docuents
@@ -2112,33 +2149,37 @@ const getDocuments = async (req, res) => {
       let doc = allDocs[j];
       let find = false;
       for (let i = 0; i < studentDetails.documents.length; i++) {
-        if (doc == studentDetails.documents[i].document_title) {
+        if (doc.title == studentDetails.documents[i].document_title) {
           find = true;
           if (studentDetails.documents[i].document_status == "UN_APPROVED") {
             required = true;
           }
-          console.log({
-            document_title: studentDetails.documents[i].document_title,
-            document_url: studentDetails.documents[i].document_url,
-            document_status: studentDetails.documents[i].document_status,
-          });
           finalDocs.push({
             document_title: studentDetails.documents[i].document_title,
             document_url: studentDetails.documents[i].document_url,
             document_status: studentDetails.documents[i].document_status,
+            document_isRequired: studentDetails.documents[i].document_isRequired,
           });
         }
       }
       if (!find) {
         // required
         finalDocs.push({
-          document_title: doc,
+          document_title: doc.title,
           document_url: "",
           document_status: "PENDING",
+          document_isRequired: doc.isRequired,
         });
-        required = true;
+        if (doc.document_isRequired == true) {
+          required = true;
+        }
       }
     }
+
+    if (["FEES_AND_DOC_PENDING", "DOCUMENTS_PENDING", "DOCUMENTS_REJECT"].includes(enrolledList[0].enroll_status)) {
+      required = true
+    }
+
 
     // console.log({ finalDocs })
 
@@ -2147,8 +2188,10 @@ const getDocuments = async (req, res) => {
       message: "Required Documents Found",
       details: {
         baseUrl: fullUrl + "/uploads/student/",
-        student: studentDetails,
+        // student: studentDetails,
         documents: finalDocs,
+        documentStatus: required,
+        // enrolledList
       },
     });
 
@@ -2162,6 +2205,7 @@ const getDocuments = async (req, res) => {
     // },
     // });
   } catch (error) {
+    console.log(error)
     res.json({
       status: "0",
       message: "Student Required Document Fetched Failed",
@@ -2171,6 +2215,8 @@ const getDocuments = async (req, res) => {
     });
   }
 };
+
+
 
 const studentUpdate = async (req, res) => {
   try {
@@ -2192,6 +2238,7 @@ const studentUpdate = async (req, res) => {
       "documents",
       "doc_title",
       "reason",
+      "fileId"
     ];
 
     let notAllowedkeys = Object.keys(req.body).filter(
@@ -2239,6 +2286,11 @@ const studentUpdate = async (req, res) => {
 
         // notification
         if (req.body?.reason) {
+          let fileData = await EnrollModel.findOne({ _id: req.body.fileId })
+          if (fileData) {
+            fileData.enroll_status = "DOCUMENTS_REJECT"
+            await fileData.save()
+          }
           failed = true;
           console.log(req.body.reason);
           var msg =
@@ -2269,10 +2321,11 @@ const studentUpdate = async (req, res) => {
             " is Approved by " +
             adminDataForHistory.email;
         }
+
         var url = "/d/student/documents";
         console.log({ msg });
         await appendNotification(StudentModel, [], msg, url);
-        await appendHistory(StudentModel, userId, "ADMIN", msg_history);
+        // await appendHistory(StudentModel, userId, "ADMIN", msg_history);
       } else {
         // pending.... Need to think more
         // let msg = `Student - ${student.email} Update Profile`
@@ -2335,6 +2388,7 @@ const studentUpdate = async (req, res) => {
     });
   }
 };
+
 const studentProfile = async (req, res) => {
   try {
     const protocol = req.protocol;
@@ -2345,7 +2399,7 @@ const studentProfile = async (req, res) => {
     if (host === "localhost") {
       var fullUrl = `${protocol}://${host}:${port}`;
     } else {
-      var fullUrl = `${protocol}://${host}`;
+      var fullUrl = `${protocol}://${host}:${port}`;
     }
 
 
@@ -2453,7 +2507,9 @@ const studentProfile = async (req, res) => {
             document_url: "",
             document_status: "PENDING",
           });
-          required = true;
+          if (doc.document_isRequired == true) {
+            required = true;
+          }
         }
       }
 
@@ -2700,7 +2756,7 @@ const forgotPassword = async (req, res) => {
     if (host === "localhost") {
       var fullUrl = `${protocol}://${host}:${port}`;
     } else {
-      var fullUrl = `${protocol}://${host}`;
+      var fullUrl = `${protocol}://${host}:${port}`;
     }
 
 
@@ -2714,7 +2770,7 @@ const forgotPassword = async (req, res) => {
 
     const token = jwt.sign(data, jwtSecretKey);
 
-    let ENDPOINT = "https://learn-global.onrender.com";
+    let ENDPOINT = "https://learnglobal.co.in";
     // let ENDPOINT = "http://localhost:3006";
 
     await sendForgotPasswordEmail(
@@ -2845,93 +2901,506 @@ const approveProfile = async (req, res) => {
   res.json({ status: "1", message });
 };
 
-const setRemark = async (req, res) => {
-  // Sender ID get from token
-  let senderId = req.userData.userId;
-  let { userId, text } = req.body;
-
-  // get admin token
-  try {
-    // get Sender Details
-    let senderData = await AdminModel.findById(senderId);
-
-    let userData = await StudentModel.findById(userId);
-    userData.remarks.push({
-      text: text,
-      created: Date.now(),
-      user_details: {
-        email: senderData.email,
-      },
-    });
-    await userData.save();
-
-    let msg = `You received a remark from (${senderData.email})`;
-    let url = `/d/student/remarks`;
-    await appendNotification(StudentModel, [], msg, url, "", userData._id);
-
-    let historyResponse = await appendHistory(
-      StudentModel,
-      userData._id,
-      "STUDENT",
-      msg
-    );
-    console.log({ historyResponse });
-
-    res.json({
-      status: "1",
-      message: "Remark Added Successfully",
-      details: {
-        newRemark: {
-          text: text,
-          created: Date.now(),
-          user_details: senderData,
-        },
-      },
-    });
-  } catch (error) {
-    console.log({ error });
-    res.json({
-      status: "0",
-      message: "Remark added failed",
-      details: {
-        error: error,
-      },
-    });
-  }
-};
-
 const getRemarks = async (req, res) => {
-  if (req.userData.role == "ADMIN") {
-    var userId = req.query.id;
+  // if (req.userData.role == "ADMIN") {
+  //   var userId = req.query.id;
+  // } else {
+  //   var { userId } = req.userData;
+  // }
+  const protocol = req.protocol;
+  const host = req.hostname;
+  const url = req.originalUrl;
+  const port = process.env.PORT || 3006;
+
+  if (host === "localhost") {
+    var fullUrl = `${protocol}://${host}:${port}`;
   } else {
-    var { userId } = req.userData;
+    var fullUrl = `${protocol}://${host}:${port}`;
   }
+
+
   const { fileId } = req.body
 
-  let file = await HistoryModel.find({ fileId: fileId }).sort({ "createdAt": "-1" });
-  console.log({ fileId, file })
-  if (!file) {
+  let fileDetails = await EnrollModel.aggregate([
+    {
+      $match: {
+        _id: ObjectId(fileId),
+      },
+    },
+    {
+      $lookup: {
+        from: "students",
+        localField: "student_id",
+        foreignField: "_id",
+        as: "student_details",
+      },
+    },
+    {
+      $unwind: {
+        path: "$student_details",
+      },
+    },
+    {
+      $lookup: {
+        from: "schools",
+        localField: "school_id",
+        foreignField: "_id",
+        as: "school_details",
+      },
+    },
+    {
+      $unwind: {
+        path: "$school_details",
+      },
+    },
+    {
+      $unwind: {
+        path: "$school_details.school_programs",
+      },
+    },
+    {
+      $match: {
+        $expr: {
+          $eq: ["$school_details.school_programs.program_id", "$program_id"],
+        },
+      },
+    },
+    {
+      $lookup: {
+        from: "countries",
+        localField: "school_details.country",
+        foreignField: "countryName",
+        as: "school_details.countryDetails"
+      }
+    },
+    {
+      $unwind: {
+        path: "$school_details.countryDetails",
+      }
+    },
+    {
+      $lookup: {
+        from: "states",
+        let: {
+          stateName: "$school_details.state",
+          countryId: "$school_details.countryDetails.countryId",
+        },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$stateName', '$$stateName'] },
+                  { $eq: ['$countryId', '$$countryId'] },
+                ]
+              }
+            }
+          }
+        ],
+        as: "school_details.stateDetails"
+      }
+    },
+    {
+      $unwind: "$school_details.stateDetails",
+    },
+    {
+      $lookup: {
+        from: "cities",
+        let: {
+          cityName: "$school_details.city",
+          stateId: "$school_details.stateDetails.stateId",
+        },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$cityName', '$$cityName'] },
+                  { $eq: ['$stateId', '$$stateId'] },
+                ]
+              }
+            }
+          }
+        ],
+        as: "school_details.cityDetails"
+      }
+    },
+    {
+      $unwind: "$school_details.cityDetails",
+    },
+    {
+      $lookup: {
+        from: "schoolnames",
+        let: {
+          localSchoolNameField: '$school_details.school_name',
+          localCountryField: '$school_details.countryDetails.countryId',
+          localStateField: '$school_details.stateDetails.stateId',
+          localCityField: '$school_details.cityDetails.cityId',
+        },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$schoolName', '$$localSchoolNameField'] },
+                  { $eq: ['$country', '$$localCountryField'] },
+                  { $eq: ['$state', '$$localStateField'] },
+                  { $eq: ['$city', '$$localCityField'] },
+                ]
+              }
+            }
+          }
+        ],
+        // localField: "school_details.school_name",
+        // foreignField: "schoolName",
+        as: "school_details.school_meta_details",
+      },
+    },
+    {
+      $unwind: {
+        path: "$school_details.school_meta_details",
+      },
+    },
+  ]);
+
+  let historyRemark = await HistoryModel.find({ fileId: fileId }).sort({ "createdAt": "-1" });
+  console.log({ fileId, historyRemark })
+  if (!historyRemark) {
     res.json({ status: "0", message: "File not found" });
   } else {
     // get user details
 
     // get school-program details
-
     res.json({
       status: "1",
       message: "History Fetched Successfully",
       details: {
-        history: file,
+        baseUrl: fullUrl + "/uploads/agent/",
+        history: historyRemark,
+        fileDetails: fileDetails[0],
       },
     });
+
   }
 };
 
+const getFileDetails = async (req, res) => {
+  // if (req.userData.role == "ADMIN") {
+  //   var userId = req.query.id;
+  // } else {
+  //   var { userId } = req.userData;
+  // }
+  const protocol = req.protocol;
+  const host = req.hostname;
+  const url = req.originalUrl;
+  const port = process.env.PORT || 3006;
 
+  if (host === "localhost") {
+    var fullUrl = `${protocol}://${host}:${port}`;
+  } else {
+    var fullUrl = `${protocol}://${host}:${port}`;
+  }
+
+
+  const { fileId } = req.body
+
+  let fileDetails = await EnrollModel.aggregate([
+    {
+      $match: {
+        _id: ObjectId(fileId),
+      },
+    },
+    {
+      $lookup: {
+        from: "students",
+        localField: "student_id",
+        foreignField: "_id",
+        as: "student_details",
+      },
+    },
+    {
+      $unwind: {
+        path: "$student_details",
+      },
+    },
+    {
+      $lookup: {
+        from: "schools",
+        localField: "school_id",
+        foreignField: "_id",
+        as: "school_details",
+      },
+    },
+    {
+      $unwind: {
+        path: "$school_details",
+      },
+    },
+    {
+      $unwind: {
+        path: "$school_details.school_programs",
+      },
+    },
+    {
+      $match: {
+        $expr: {
+          $eq: ["$school_details.school_programs.program_id", "$program_id"],
+        },
+      },
+    },
+    {
+      $lookup: {
+        from: "countries",
+        localField: "school_details.country",
+        foreignField: "countryName",
+        as: "school_details.countryDetails"
+      }
+    },
+    {
+      $unwind: {
+        path: "$school_details.countryDetails",
+      }
+    },
+    {
+      $lookup: {
+        from: "states",
+        let: {
+          stateName: "$school_details.state",
+          countryId: "$school_details.countryDetails.countryId",
+        },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$stateName', '$$stateName'] },
+                  { $eq: ['$countryId', '$$countryId'] },
+                ]
+              }
+            }
+          }
+        ],
+        as: "school_details.stateDetails"
+      }
+    },
+    {
+      $unwind: "$school_details.stateDetails",
+    },
+    {
+      $lookup: {
+        from: "cities",
+        let: {
+          cityName: "$school_details.city",
+          stateId: "$school_details.stateDetails.stateId",
+        },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$cityName', '$$cityName'] },
+                  { $eq: ['$stateId', '$$stateId'] },
+                ]
+              }
+            }
+          }
+        ],
+        as: "school_details.cityDetails"
+      }
+    },
+    {
+      $unwind: "$school_details.cityDetails",
+    },
+    {
+      $lookup: {
+        from: "schoolnames",
+        let: {
+          localSchoolNameField: '$school_details.school_name',
+          localCountryField: '$school_details.countryDetails.countryId',
+          localStateField: '$school_details.stateDetails.stateId',
+          localCityField: '$school_details.cityDetails.cityId',
+        },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$schoolName', '$$localSchoolNameField'] },
+                  { $eq: ['$country', '$$localCountryField'] },
+                  { $eq: ['$state', '$$localStateField'] },
+                  { $eq: ['$city', '$$localCityField'] },
+                ]
+              }
+            }
+          }
+        ],
+        // localField: "school_details.school_name",
+        // foreignField: "schoolName",
+        as: "school_details.school_meta_details",
+      },
+    },
+    {
+      $unwind: {
+        path: "$school_details.school_meta_details",
+      },
+    },
+    {
+      $project: {
+        "school_details.school_meta_details._id": 0,
+        "school_details.school_meta_details.schoolName": 0,
+        "school_details.school_meta_details.country": 0,
+        "school_details.school_meta_details.state": 0,
+        "school_details.school_meta_details.city": 0,
+        "school_details.school_meta_details.__v": 0,
+        "school_details.countryDetails": 0,
+        "school_details.stateDetails": 0,
+        "school_details.cityDetails": 0,
+        "student_details.notifications": 0,
+        "student_details.unseenNotifications": 0,
+        "student_details.unseenNotifications": 0,
+        "student_details.history": 0,
+        "student_details.password": 0,
+        "student_details.remarks": 0,
+        "student_details.device_token": 0,
+        "student_details.web_push_token": 0,
+      }
+    }
+  ]);
+
+  if (fileDetails.length == 0) {
+    res.json({
+      status: "0",
+      message: "File not found"
+    })
+    return;
+  }
+
+  let historyRemark = await HistoryModel.find({ fileId: fileId }).sort({ "createdAt": "-1" });
+  console.log({ fileId, historyRemark })
+  if (!historyRemark) {
+    res.json({ status: "0", message: "File not found" });
+  } else {
+    // get user details
+
+
+    // Get Files documents
+    let studentDocs = fileDetails[0].student_details.documents
+
+    var allDocs = await DocsRequiredModel.findOne({
+      countryName: fileDetails[0].school_details.country.toLowerCase(),
+    });
+
+    if (allDocs) {
+      allDocs = allDocs.docsRequired;
+    } else {
+      allDocs = []
+    }
+
+    finalDocs = [];
+    let required = false;
+    console.log({ allDocs })
+    for (let j = 0; j < allDocs.length; j++) {
+      let doc = allDocs[j];
+      let find = false;
+      for (let i = 0; i < studentDocs.length; i++) {
+        if (doc == studentDocs[i].document_title) {
+          find = true;
+          if (studentDocs[i].document_status == "UN_APPROVED") {
+            required = true;
+          }
+          finalDocs.push({
+            document_title: studentDocs[i].document_title,
+            document_url: studentDocs[i].document_url,
+            document_status: studentDocs[i].document_status,
+          });
+        }
+      }
+      if (!find) {
+        // required
+        finalDocs.push({
+          document_title: doc.title,
+          document_url: "",
+          document_status: "PENDING",
+          document_isRequired: doc.isRequired,
+        });
+
+        if (doc.document_isRequired == true) {
+          required = true;
+        }
+      }
+    }
+
+
+    // Get Embassy Documents Status
+    let allEmbassyDocs = [];
+    // get Required Documents
+    var doc = await EmbacyDocsModel.findOne({
+      countryName: fileDetails[0].school_details.country.toLowerCase(),
+    });
+
+
+    if (doc) {
+      allEmbassyDocs = allEmbassyDocs.docsRequired;
+    } else {
+      allEmbassyDocs = []
+    }
+    var finalEmbassyDocs = [];
+    var required2 = false
+    for (let j = 0; j < allEmbassyDocs.length; j++) {
+      let doc = allEmbassyDocs[j];
+      let find2 = false;
+      for (let i = 0; i < allEmbassyDocs.length; i++) {
+        if (doc.title == allEmbassyDocs[i].document_title) {
+          find2 = true;
+          if (allEmbassyDocs[i].document_status == "UN_APPROVED") {
+            required2 = true;
+          }
+          finalEmbassyDocs.push({
+            document_title: allEmbassyDocs[i].document_title,
+            document_url: allEmbassyDocs[i].document_url,
+            document_status: allEmbassyDocs[i].document_status,
+            document_isRequired: allEmbassyDocs[i].document_isRequired,
+          });
+        }
+      }
+      if (!find2) {
+        // required
+        finalEmbassyDocs.push({
+          document_title: doc.title,
+          document_url: "",
+          document_status: "PENDING",
+          document_isRequired: doc.isRequired,
+        });
+        
+        required2 = true;
+      }
+    }
+
+
+    console.log({ finalEmbassyDocs })
+    console.log({ required, required2 })
+
+    delete fileDetails[0].student_details.documents
+
+    // get school-program details
+    res.json({
+      status: "1",
+      message: "File Details Fetch Successfully",
+      details: {
+        baseUrl: fullUrl + "/uploads/agent/",
+        history: historyRemark,
+        fileDetails: fileDetails[0],
+        initialDocumentsStatus: required,
+        embassyDocumentsStatus: required2,
+      },
+    });
+
+  }
+};
 
 const handlePayment = async (req, res) => {
   try {
-    const { fileId, status, intake, razorpay_payment_id } = req.body;
+    const { fileId, intake, razorpay_payment_id } = req.body;
     let file = await EnrollModel.findOne({ _id: ObjectId(fileId) });
     if (!file) {
       res.json({
@@ -2944,7 +3413,11 @@ const handlePayment = async (req, res) => {
       return;
     }
     console.log("im here to send")
-    file.enroll_status = status;
+    if (file.enroll_status == "FEES_AND_DOC_PENDING") {
+      file.enroll_status = "DOCUMENTS_PENDING";
+    } else {
+      file.enroll_status = "UNDER_VERIFICATION";
+    }
     file.intake = intake;
     file.fees_status = "PAID";
     file.payment_id = razorpay_payment_id;
@@ -2961,7 +3434,7 @@ const handlePayment = async (req, res) => {
       status: "1",
       message: "Status Updated",
       details: {
-        status: status,
+        enroll_status: file.enroll_status,
       }
     })
   }
@@ -3075,7 +3548,6 @@ const createOrder = async (req, res) => {
   }
 }
 
-
 const landingPage = async (req, res) => {
   const protocol = req.protocol;
   const host = req.hostname;
@@ -3084,12 +3556,17 @@ const landingPage = async (req, res) => {
   if (host === "localhost") {
     var fullUrl = `${protocol}://${host}:${port}`;
   } else {
-    var fullUrl = `${protocol}://${host}`;
+    var fullUrl = `${protocol}://${host}:${port}`;
   }
 
   let countries = await SchoolNamesModel.aggregate([
     {
-      $group: { _id: "$country" }
+      $group: {
+        _id: "$country",
+        countryLogo: {
+          $first: "$countryLogo",
+        }
+      }
     },
     {
       $lookup: {
@@ -3104,6 +3581,7 @@ const landingPage = async (req, res) => {
         path: "$countryDetails",
       }
     },
+
   ])
 
   // streams
@@ -3160,6 +3638,102 @@ const landingPage = async (req, res) => {
         }
       },
       {
+        $lookup: {
+          from: "countries",
+          localField: "country",
+          foreignField: "countryName",
+          as: "countryDetails"
+        }
+      },
+      {
+        $unwind: {
+          path: "$countryDetails",
+        }
+      },
+      {
+        $lookup: {
+          from: "states",
+          let: {
+            stateName: "$state",
+            countryId: "$countryDetails.countryId",
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$stateName', '$$stateName'] },
+                    { $eq: ['$countryId', '$$countryId'] },
+                  ]
+                }
+              }
+            }
+          ],
+          as: "stateDetails"
+        }
+      },
+      {
+        $unwind: "$stateDetails",
+      },
+      {
+        $lookup: {
+          from: "cities",
+          let: {
+            cityName: "$city",
+            stateId: "$stateDetails.stateId",
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$cityName', '$$cityName'] },
+                    { $eq: ['$stateId', '$$stateId'] },
+                  ]
+                }
+              }
+            }
+          ],
+          as: "cityDetails"
+        }
+      },
+      {
+        $unwind: "$cityDetails",
+      },
+      {
+        $lookup: {
+          from: "schoolnames",
+          let: {
+            localSchoolNameField: '$school_name',
+            localCountryField: '$countryDetails.countryId',
+            localStateField: '$stateDetails.stateId',
+            localCityField: '$cityDetails.cityId',
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$schoolName', '$$localSchoolNameField'] },
+                    { $eq: ['$country', '$$localCountryField'] },
+                    { $eq: ['$state', '$$localStateField'] },
+                    { $eq: ['$city', '$$localCityField'] },
+                  ]
+                }
+              }
+            }
+          ],
+          // localField: "school_name",
+          // foreignField: "schoolName",
+          as: "school_meta_details",
+        },
+      },
+      {
+        $unwind: {
+          path: "$school_meta_details",
+        },
+      },
+      {
         $limit: 2,
       },
     ]);
@@ -3171,22 +3745,563 @@ const landingPage = async (req, res) => {
   let schoolsLogo = await SchoolNamesModel.find()
   let topSchools = await SchoolNamesModel.find().limit(3)
 
+  let titleLine = "Education is the passion for learning which leads us from darkness to light"
+  let main_email = "info@learnglobal.com"
+  let social_links = {
+    linked_in: "https://www.google.com",
+    twitter: "https://www.google.com",
+    instagram: "https://www.google.com",
+    facebook: "https://www.google.com",
+  }
+  let main_logo_a = "log_a.png"
+  let main_logo_b = "logo2.png"
+  let total_students = 10245
+  let scholarships = 45000
+  let total_courses = 40000
+
+  let aboutus = "Learn Global means learn anywhere in the world and we provide you the best platform to study abroad and make your future bright. We offer exact information for students interested in school/college and courses. We help you classify the best universities that match your profile."
+  let aboutus_image = "https://www.learnglobal.com/schoollogo/home-about11.jpg"
+
+  let media = "Our awareness and expertise will boost your probability of admissions accomplishment when studying abroad. We are the No. 1 education service provider for students to apply to the best institutions in the world. Our miscellaneous team is fueled by a passion for culture and innovation. Our team of experts connects with students univer, supporting them with our platform and services."
+  let media_images = [
+    "https://www.learnglobal.com/asset/start/images/slide1.png",
+    "https://www.learnglobal.com/asset/start/images/slide2.png",
+    "https://www.learnglobal.com/asset/start/images/slide3.png"
+  ]
+  let footer_description = "Learn Global means learn anywhere in the world and we provide you the best platform to study abroad and make your future bright."
+
+  let finalDetails = {
+    baseUrl: fullUrl + "/uploads/agent/",
+    countries,
+    top_courses: {
+      streams,
+      programs
+    },
+    schoolsLogo,
+    topSchools,
+    titleLine,
+    main_email,
+    social_links,
+    main_logo_a,
+    main_logo_b,
+    total_students,
+    scholarships,
+    total_courses,
+    about: {
+      text: aboutus,
+      image: aboutus_image
+    },
+    media: {
+      text: media,
+      images: media_images
+    },
+    footer_description
+  }
+
+  res.json({
+    status: "1",
+    details: finalDetails
+  })
+
+}
+
+const specifiCountry = async (req, res) => {
+  const protocol = req.protocol;
+  const host = req.hostname;
+  const url = req.originalUrl;
+  const port = process.env.PORT || 3006;
+  if (host === "localhost") {
+    var fullUrl = `${protocol}://${host}:${port}`;
+  } else {
+    var fullUrl = `${protocol}://${host}:${port}`;
+  }
+  let { countryId } = req.params;
+  let countryDetails = await CountryModel.findOne({ countryId: countryId })
+  let schoolsList = await SchoolNamesModel.find({
+    country: countryId,
+  })
+  let baseUrl = fullUrl + "/uploads/agent/"
+
   res.json({
     status: "1",
     details: {
-      baseUrl: fullUrl + "/uploads/agent/",
-      countries,
-      top_courses: {
-        streams,
-        programs
-      },
-      schoolsLogo,
-      topSchools
+      countryDetails,
+      schoolsList,
+      baseUrl
     }
   })
 
 }
 
+const specificSchool = async (req, res) => {
+  const protocol = req.protocol;
+  const host = req.hostname;
+  const url = req.originalUrl;
+  const port = process.env.PORT || 3006;
+  if (host === "localhost") {
+    var fullUrl = `${protocol}://${host}:${port}`;
+  } else {
+    var fullUrl = `${protocol}://${host}:${port}`;
+  }
+  let { schoolId } = req.params;
+
+  let schoolNames = await SchoolNamesModel.findOne({ _id: schoolId })
+  if (!schoolNames) {
+    var schoolDetails = await SchoolModel.findOne({
+      _id: schoolId,
+    })
+  } else {
+    var schoolDetails = await SchoolModel.findOne({
+      school_name: schoolNames.schoolName,
+    })
+  }
+
+  if (!schoolDetails) {
+    res.json({
+      status: "0",
+      message: "School Not Found"
+    })
+    return;
+  }
+
+  let baseUrl = fullUrl + "/uploads/agent/"
+
+  res.json({
+    status: "1",
+    details: {
+      schoolDetails,
+      baseUrl
+    }
+  })
+
+}
+
+const discoverSchool = async (req, res) => {
+  const protocol = req.protocol;
+  const host = req.hostname;
+  const url = req.originalUrl;
+  const port = process.env.PORT || 3006;
+  if (host === "localhost") {
+    var fullUrl = `${protocol}://${host}:${port}`;
+  } else {
+    var fullUrl = `${protocol}://${host}:${port}`;
+  }
+  let { searchQuery } = req.params;
+
+  let query = []
+  if (searchQuery == "-1") {
+
+  } else {
+    query.push({
+      $or: [
+        { school_name: { $regex: searchQuery, $options: "i" } },
+        { country: { $regex: searchQuery, $options: "i" } },
+      ],
+    })
+  }
+  let schoolsList = await SchoolModel.aggregate([
+    {
+      $match: query.length != 0 ? { $and: query } : {},
+    },
+    {
+      $lookup: {
+        from: "countries",
+        localField: "country",
+        foreignField: "countryName",
+        as: "countryDetails"
+      }
+    },
+    {
+      $unwind: {
+        path: "$countryDetails",
+      }
+    },
+    {
+      $lookup: {
+        from: "states",
+        let: {
+          stateName: "$state",
+          countryId: "$countryDetails.countryId",
+        },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$stateName', '$$stateName'] },
+                  { $eq: ['$countryId', '$$countryId'] },
+                ]
+              }
+            }
+          }
+        ],
+        as: "stateDetails"
+      }
+    },
+    {
+      $unwind: "$stateDetails",
+    },
+    {
+      $lookup: {
+        from: "cities",
+        let: {
+          cityName: "$city",
+          stateId: "$stateDetails.stateId",
+        },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$cityName', '$$cityName'] },
+                  { $eq: ['$stateId', '$$stateId'] },
+                ]
+              }
+            }
+          }
+        ],
+        as: "cityDetails"
+      }
+    },
+    {
+      $unwind: "$cityDetails",
+    },
+    {
+      $lookup: {
+        from: "schoolnames",
+        let: {
+          localSchoolNameField: '$school_name',
+          localCountryField: '$countryDetails.countryId',
+          localStateField: '$stateDetails.stateId',
+          localCityField: '$cityDetails.cityId',
+        },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$schoolName', '$$localSchoolNameField'] },
+                  { $eq: ['$country', '$$localCountryField'] },
+                  { $eq: ['$state', '$$localStateField'] },
+                  { $eq: ['$city', '$$localCityField'] },
+                ]
+              }
+            }
+          }
+        ],
+        // localField: "school_details.school_name",
+        // foreignField: "schoolName",
+        as: "school_meta_details",
+      },
+    },
+    {
+      $unwind: {
+        path: "$school_meta_details",
+      },
+    },
+    {
+      $sort: {
+        school_name: 1,
+      },
+    },
+  ]);
+
+  let baseUrl = fullUrl + "/uploads/agent/"
+
+  res.json({
+    status: "1",
+    details: {
+      schoolsList,
+      baseUrl
+    }
+  })
+
+}
+
+const uploadSwiftFile = async (req, res) => {
+  try {
+    let filename = req.file.filename
+    let { fileId } = req.body;
+    console.log({ fileId, filename })
+    console.log({ fileId })
+    let File = await EnrollModel.findOne({ _id: ObjectId(fileId) })
+    if (!File) {
+      res.json({
+        status: "0",
+        message: "File not found"
+      })
+      return;
+    }
+    File.tution_fees_recepit = filename
+    File.enroll_status = "TUTION_FEES_PROCESSING"
+
+    await File.save()
+    res.json({
+      status: "1",
+      message: "Tution Fees Receipt Uploaded",
+      details: {
+        file: File
+      }
+    })
+
+  } catch (err) {
+    res.json({
+      status: "0",
+      message: "Server Error Occured",
+      details: {
+        error: err.message
+      }
+    })
+    console.log({ err })
+    return;
+
+  }
+}
+
+
+const getEmbacyDocs = async (req, res) => {
+  console.log(req.userData)
+  const { fileId } = req.body;
+
+  try {
+    const protocol = req.protocol;
+    const host = req.hostname;
+    const url = req.originalUrl;
+    const port = process.env.PORT || 3006;
+
+    if (host === "localhost") {
+      var fullUrl = `${protocol}://${host}:${port}`;
+    } else {
+      var fullUrl = `${protocol}://${host}:${port}`;
+    }
+
+
+    // get enrolledList details
+    let enrolledList = await EnrollModel.aggregate([
+      {
+        $match: {
+          _id: ObjectId(fileId),
+        },
+      },
+      {
+        $lookup: {
+          from: "schools",
+          localField: "school_id",
+          foreignField: "_id",
+          as: "school_details",
+        },
+      },
+      {
+        $unwind: {
+          path: "$school_details",
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          enroll_status: 1,
+          embassy_docs: 1,
+          "school_details.school_name": 1,
+          "school_details.country": 1,
+        },
+      },
+    ]);
+
+    console.log({ enrolledList })
+
+    let myEmbacyDocs = enrolledList[0]?.embassy_docs || []
+
+    let allDocs = [];
+    // get Required Documents
+    try {
+      var doc = await EmbacyDocsModel.findOne({
+        countryName: enrolledList[0].school_details.country.toLowerCase(),
+      });
+      console.log({ doc });
+    } catch (error) {
+      console.log({ error });
+    }
+    if (doc) {
+      allDocs = doc.docsRequired;
+    }
+    console.log({ allDocs, myEmbacyDocs })
+    finalDocs = [];
+    var required = false;
+    for (let j = 0; j < allDocs.length; j++) {
+      let doc = allDocs[j];
+      let find = false;
+      for (let i = 0; i < myEmbacyDocs.length; i++) {
+        if (doc.title == myEmbacyDocs[i].document_title) {
+          find = true;
+          if (myEmbacyDocs[i].document_status == "UN_APPROVED") {
+            required = true;
+          }
+          finalDocs.push({
+            document_title: myEmbacyDocs[i].document_title,
+            document_url: myEmbacyDocs[i].document_url,
+            document_status: myEmbacyDocs[i].document_status,
+            document_isRequired: myEmbacyDocs[i].isRequired,
+          });
+        }
+      }
+      if (!find) {
+        // required
+        finalDocs.push({
+          document_title: doc.title,
+          document_url: "",
+          document_status: "PENDING",
+          document_isRequired: doc.isRequired,
+        });
+        console.log("doc", doc)
+        if (doc.document_isRequired == true) {
+          required = true;
+        }
+      }
+    }
+
+    // console.log({ finalDocs })
+
+    res.json({
+      status: "1",
+      message: "Required Docs for Embassy Found",
+      details: {
+        baseUrl: fullUrl + "/uploads/student/",
+        documents: finalDocs,
+        enroll_status: enrolledList[0].enroll_status
+      },
+    });
+
+    // res.json({
+    // status: "1",
+    // message: "Document Fetched",
+    // details: {
+    //     documents: student.documents,
+    //     student: student,
+    //     baseUrl: fullUrl + "/uploads/student/",
+    // },
+    // });
+  } catch (error) {
+    console.log({ error })
+    res.json({
+      status: "0",
+      message: "Student Required Document Fetched Failed",
+      details: {
+        error,
+      },
+    });
+  }
+};
+
+
+const uploadEmbacyDocument = async (req, res) => {
+  try {
+    let fileId = req.body.fileId
+
+    var fileData = await EnrollModel.findOne({ _id: fileId });
+    let find = false;
+    for (let i = 0; i < fileData.embassy_docs.length; i++) {
+      if (fileData.embassy_docs[i].document_title == req.body.title) {
+        console.log("Change Docs ===================================> ");
+        find = true;
+        fileData.embassy_docs[i].document_url = req.file.filename;
+        fileData.embassy_docs[i].document_status = "UNDER_VERIFICATION";
+        var text = req.body.title + " Document Changed";
+        console.log({ docs: fileData.embassy_docs });
+        // fileData.embassy_docs = oldDocs
+        await fileData.save();
+
+        console.log({fileData})
+
+        // await appendHistory(StudentModel, userId, userRole, text);
+
+        res.json({
+          status: "1",
+          message: "Student Embassy Document Upload Successfully",
+          details: {
+            document: {
+              document_title: req.body.title,
+              document_url: req.file.filename,
+              document_status: "UNDER_VERIFICATION",
+            },
+          },
+        });
+        return;
+      }
+    }
+    if (!find) {
+      console.log("upload new document");
+      fileData.embassy_docs.push({
+        document_title: req.body.title,
+        document_url: req.file.filename,
+        document_status: "UNDER_VERIFICATION",
+      });
+      await fileData.save();
+
+      res.json({
+        status: "1",
+        message: "Student Embassy Document Upload Successfully",
+        details: {
+          document: {
+            document_title: req.body.title,
+            document_url: req.file.filename,
+            document_status: "UNDER_VERIFICATION",
+          },
+        },
+      });
+    }
+  } catch (error) {
+    console.log(error);
+    res.json({
+      status: "0",
+      message: "Student Document Uploaded Failed",
+      details: {
+        error,
+      },
+    });
+  }
+};
+
+
+const submitAllEmbassyDocs = async (req, res) => {
+  const { fileId } = req.body;
+  if (req.userData.role == "AGENT") {
+    var userId = req.body.student_id;
+  } else {
+    var { userId } = req.userData;
+  }
+
+
+  var student = await StudentModel.findOne({ _id: userId });
+  let enrollFile = await EnrollModel.findOne({ _id: fileId })
+  if (enrollFile.enroll_status == "FILE_LODGED_DOCS_PROCESSING") {
+    res.json({
+      status: "0",
+      message: "Embassy Documents already submit"
+    })
+    return;
+  }
+
+  student.status = "IN_PROCESS";
+
+  var enrolledList = await EnrollModel.updateOne({ _id: fileId }, {
+    $set: {
+      enroll_status: "FILE_LODGED_DOCS_PROCESSING",
+    }
+  });
+
+
+
+  await student.save();
+  let msg = "Embassy Documents uploaded by the user " + student.email;
+  let url = `/d/admin/studentprofile?id=${userId}&tab=documents`;
+  await appendNotification(AdminModel, ["ADMIN"], msg, url); // last parameter body is optionally
+
+  let text = "Submit All Documents";
+  let userRole = "STUDENT";
+  // await appendHistory(StudentModel, userId, userRole, text);
+
+  res.json({ status: "1", message: "All Embassy Documents Submitted Successfully" });
+};
 
 module.exports = {
   fillAssessmentForm,
@@ -3212,10 +4327,17 @@ module.exports = {
   verifyToken,
   approveProfile,
   getNotifications,
-  getHistory,
-  setRemark,
+  // getHistory,
   getRemarks,
   handlePayment,
   createOrder,
-  landingPage
+  landingPage,
+  specifiCountry,
+  specificSchool,
+  discoverSchool,
+  uploadSwiftFile,
+  getEmbacyDocs,
+  uploadEmbacyDocument,
+  submitAllEmbassyDocs,
+  getFileDetails,
 };
